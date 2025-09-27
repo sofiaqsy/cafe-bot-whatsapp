@@ -787,12 +787,17 @@ _Escribe *"listo"* o *"enviado"* para confirmar_
                         metodoPago: 'Transferencia bancaria',
                         estado: 'Pendiente verificación',
                         comprobanteRecibido: true,
-                        esReorden: userState.data.esReorden || false
+                        esReorden: userState.data.esReorden || false,
+                        urlComprobante: userState.data.urlComprobante || null // Guardar URL si existe
                     };
                     
                     // Enviar notificación para validación si está configurado
                     if (notificationService && pedidoCompleto.comprobanteRecibido) {
-                        await notificationService.notificarComprobanteParaValidacion(pedidoCompleto, null, from);
+                        await notificationService.notificarComprobanteParaValidacion(
+                            pedidoCompleto, 
+                            pedidoCompleto.urlComprobante, // Pasar el URL si existe
+                            from
+                        );
                         console.log(`📤 Notificación de validación enviada para pedido ${pedidoId}`);
                     }
                     
@@ -1394,27 +1399,17 @@ app.post('/webhook', async (req, res) => {
                         console.log(`✅ Comprobante subido a Drive`);
                         console.log(`🔗 Link del comprobante: ${resultado.webViewLink}`);
                         
+                        // Guardar el URL en el estado del usuario
+                        if (userState.data) {
+                            userState.data.urlComprobante = resultado.webViewLink;
+                            userStates.set(From, userState);
+                            console.log(`🔐 URL guardado en estado del usuario`);
+                        }
+                        
                         // Procesar como si hubiera escrito "listo"
                         const respuestaComprobante = await manejarMensaje(From, 'listo');
                         
-                        // Obtener el pedido actualizado
-                        const pedidoActualizado = Array.from(pedidosConfirmados.values())
-                            .find(p => p.telefono === From && p.estado === 'Pendiente verificación');
-                        
-                        // Enviar notificación con link del comprobante para validación
-                        if (notificationService && pedidoActualizado && resultado.webViewLink) {
-                            console.log(`📨 Enviando notificación con link: ${resultado.webViewLink}`);
-                            await notificationService.notificarComprobanteParaValidacion(
-                                pedidoActualizado,
-                                resultado.webViewLink,
-                                From
-                            );
-                            console.log(`📤 Notificación con comprobante enviada para validación`);
-                        } else {
-                            console.log(`⚠️ No se envió link en la notificación`);
-                        }
-                        
-                        // Agregar info del link solo si NO es exitoso
+                        // La notificación ya se envió dentro de manejarMensaje con el URL
                         const respuestaFinal = respuestaComprobante;
                         
                         await enviarMensaje(From, respuestaFinal);
