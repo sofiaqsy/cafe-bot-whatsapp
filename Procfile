@@ -1,1 +1,1 @@
-web: node bot-seguimiento.js
+web: node bot.js
