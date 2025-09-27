@@ -1409,9 +1409,8 @@ app.post('/webhook', async (req, res) => {
                             console.log(`📤 Notificación con comprobante enviada para validación`);
                         }
                         
-                        // Agregar info del link de Drive
-                        const respuestaFinal = respuestaComprobante + 
-                            `\n\n🔗 *Comprobante guardado en Drive:*\n${resultado.webViewLink}`;
+                        // Agregar info del link solo si NO es exitoso
+                        const respuestaFinal = respuestaComprobante;
                         
                         await enviarMensaje(From, respuestaFinal);
                     } else {
