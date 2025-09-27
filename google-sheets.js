@@ -56,8 +56,8 @@ class GoogleSheetsIntegration {
                 console.log(`📊 Spreadsheet ID: ${this.spreadsheetId}`);
                 this.initialized = true;
                 
-                // Crear hoja de WhatsApp si no existe
-                await this.crearHojaWhatsApp();
+                // Crear hojas necesarias si no existen
+                await this.crearHojasNecesarias();
                 
                 return true;
             } catch (error) {
@@ -71,7 +71,7 @@ class GoogleSheetsIntegration {
         }
     }
 
-    async crearHojaWhatsApp() {
+    async crearHojasNecesarias() {
         if (!this.initialized) return false;
         
         try {
@@ -81,258 +81,432 @@ class GoogleSheetsIntegration {
             });
 
             const sheets = response.data.sheets || [];
-            const hojaWhatsApp = sheets.find(sheet => 
-                sheet.properties.title === 'PedidosWhatsApp'
-            );
+            const nombresHojas = sheets.map(sheet => sheet.properties.title);
+            
+            // Crear hoja de Pedidos si no existe
+            if (!nombresHojas.includes('PedidosWhatsApp')) {
+                await this.crearHojaPedidos();
+            }
+            
+            // Crear hoja de Clientes si no existe
+            if (!nombresHojas.includes('Clientes')) {
+                await this.crearHojaClientes();
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Error creando hojas:', error.message);
+            return false;
+        }
+    }
 
-            if (!hojaWhatsApp) {
-                console.log('📝 Creando hoja PedidosWhatsApp...');
-                
-                // Crear nueva hoja
-                await this.sheets.spreadsheets.batchUpdate({
-                    spreadsheetId: this.spreadsheetId,
-                    requestBody: {
-                        requests: [{
-                            addSheet: {
-                                properties: {
-                                    title: 'PedidosWhatsApp',
-                                    gridProperties: {
-                                        rowCount: 1000,
-                                        columnCount: 20
-                                    }
+    async crearHojaPedidos() {
+        console.log('📝 Creando hoja PedidosWhatsApp...');
+        
+        try {
+            // Crear nueva hoja
+            await this.sheets.spreadsheets.batchUpdate({
+                spreadsheetId: this.spreadsheetId,
+                requestBody: {
+                    requests: [{
+                        addSheet: {
+                            properties: {
+                                title: 'PedidosWhatsApp',
+                                gridProperties: {
+                                    rowCount: 1000,
+                                    columnCount: 20
                                 }
                             }
-                        }]
-                    }
-                });
-
-                // Agregar encabezados
-                const headers = [[
-                    'ID_Pedido',
-                    'Fecha',
-                    'Hora',
-                    'Cliente',
-                    'Cafetería',
-                    'Teléfono',
-                    'Producto',
-                    'Cantidad_kg',
-                    'Precio_Unitario',
-                    'Subtotal',
-                    'Descuento',
-                    'Total',
-                    'Dirección',
-                    'Contacto',
-                    'Observaciones',
-                    'Estado',
-                    'Fecha_Entrega',
-                    'Método_Pago',
-                    'Origen'
-                ]];
-
-                await this.sheets.spreadsheets.values.update({
-                    spreadsheetId: this.spreadsheetId,
-                    range: 'PedidosWhatsApp!A1:S1',
-                    valueInputOption: 'USER_ENTERED',
-                    requestBody: { values: headers }
-                });
-
-                console.log('✅ Hoja PedidosWhatsApp creada con éxito');
-            } else {
-                console.log('✅ Hoja PedidosWhatsApp ya existe');
-            }
-            
-            return true;
-        } catch (error) {
-            console.error('❌ Error creando hoja WhatsApp:', error.message);
-            return false;
-        }
-    }
-
-    async agregarPedido(pedidoData) {
-        if (!this.initialized) {
-            console.log('⚠️ Google Sheets no inicializado');
-            return false;
-        }
-
-        try {
-            const fecha = new Date();
-            const fechaStr = fecha.toISOString().split('T')[0];
-            const horaStr = fecha.toTimeString().split(' ')[0];
-            const fechaEntrega = new Date(fecha.getTime() + 24 * 60 * 60 * 1000);
-
-            const values = [[
-                pedidoData.id,
-                fechaStr,
-                horaStr,
-                pedidoData.nombreNegocio || '',
-                pedidoData.cafeteria || pedidoData.nombreNegocio || '',
-                pedidoData.telefono || '',
-                pedidoData.producto?.nombre || '',
-                pedidoData.cantidad || 0,
-                pedidoData.producto?.precio || 0,
-                pedidoData.subtotal || 0,
-                pedidoData.descuento || 0,
-                pedidoData.total || 0,
-                pedidoData.direccion || '',
-                pedidoData.contacto || '',
-                pedidoData.observaciones || '',
-                pedidoData.estado || 'Confirmado',
-                fechaEntrega.toISOString().split('T')[0],
-                pedidoData.metodoPago || 'Por definir',
-                'WhatsApp'
-            ]];
-
-            const response = await this.sheets.spreadsheets.values.append({
-                spreadsheetId: this.spreadsheetId,
-                range: 'PedidosWhatsApp!A:S',
-                valueInputOption: 'USER_ENTERED',
-                insertDataOption: 'INSERT_ROWS',
-                requestBody: { values }
-            });
-
-            console.log(`✅ Pedido ${pedidoData.id} guardado en Google Sheets`);
-            return true;
-        } catch (error) {
-            console.error('❌ Error guardando pedido en Sheets:', error.message);
-            return false;
-        }
-    }
-
-    async leerPedidos(limite = 50) {
-        if (!this.initialized) return [];
-
-        try {
-            const response = await this.sheets.spreadsheets.values.get({
-                spreadsheetId: this.spreadsheetId,
-                range: 'PedidosWhatsApp!A2:S'
-            });
-
-            const rows = response.data.values || [];
-            
-            const pedidos = rows.map(row => ({
-                id: row[0],
-                fecha: row[1],
-                hora: row[2],
-                cliente: row[3],
-                cafeteria: row[4],
-                telefono: row[5],
-                producto: row[6],
-                cantidad: parseFloat(row[7]) || 0,
-                precioUnitario: parseFloat(row[8]) || 0,
-                subtotal: parseFloat(row[9]) || 0,
-                descuento: parseFloat(row[10]) || 0,
-                total: parseFloat(row[11]) || 0,
-                direccion: row[12],
-                contacto: row[13],
-                observaciones: row[14],
-                estado: row[15],
-                fechaEntrega: row[16],
-                metodoPago: row[17],
-                origen: row[18]
-            }));
-
-            // Retornar los últimos pedidos según el límite
-            return pedidos.slice(-limite).reverse();
-        } catch (error) {
-            console.error('❌ Error leyendo pedidos:', error.message);
-            return [];
-        }
-    }
-
-    async actualizarEstadoPedido(pedidoId, nuevoEstado) {
-        if (!this.initialized) return false;
-
-        try {
-            // Primero buscar el pedido
-            const response = await this.sheets.spreadsheets.values.get({
-                spreadsheetId: this.spreadsheetId,
-                range: 'PedidosWhatsApp!A:A'
-            });
-
-            const ids = response.data.values || [];
-            const rowIndex = ids.findIndex(row => row[0] === pedidoId);
-
-            if (rowIndex === -1) {
-                console.log(`⚠️ Pedido ${pedidoId} no encontrado`);
-                return false;
-            }
-
-            // Actualizar el estado (columna P = columna 16)
-            const updateRange = `PedidosWhatsApp!P${rowIndex + 1}`;
-            
-            await this.sheets.spreadsheets.values.update({
-                spreadsheetId: this.spreadsheetId,
-                range: updateRange,
-                valueInputOption: 'USER_ENTERED',
-                requestBody: {
-                    values: [[nuevoEstado]]
+                        }
+                    }]
                 }
             });
 
-            console.log(`✅ Estado del pedido ${pedidoId} actualizado a ${nuevoEstado}`);
-            return true;
+            // Agregar encabezados
+            const headers = [
+                'ID Pedido',
+                'Fecha',
+                'Hora',
+                'Empresa',
+                'Contacto',
+                'Teléfono',
+                'Dirección',
+                'Producto',
+                'Cantidad (kg)',
+                'Precio Unit.',
+                'Subtotal',
+                'Descuento',
+                'Total',
+                'Método Pago',
+                'Estado',
+                'Comprobante',
+                'Observaciones',
+                'Tipo',
+                'ID Cliente',
+                'Usuario WhatsApp'
+            ];
+
+            await this.sheets.spreadsheets.values.update({
+                spreadsheetId: this.spreadsheetId,
+                range: 'PedidosWhatsApp!A1:T1',
+                valueInputOption: 'RAW',
+                requestBody: {
+                    values: [headers]
+                }
+            });
+
+            console.log('✅ Hoja PedidosWhatsApp creada');
         } catch (error) {
-            console.error('❌ Error actualizando estado:', error.message);
-            return false;
+            console.error('Error creando hoja de pedidos:', error.message);
         }
     }
 
-    async obtenerEstadisticas() {
-        if (!this.initialized) return null;
-
+    async crearHojaClientes() {
+        console.log('📝 Creando hoja Clientes...');
+        
         try {
-            const pedidos = await this.leerPedidos(100);
-            const hoy = new Date().toISOString().split('T')[0];
-            
-            const pedidosHoy = pedidos.filter(p => p.fecha === hoy);
-            
-            const stats = {
-                totalPedidos: pedidos.length,
-                pedidosHoy: pedidosHoy.length,
-                ventasHoy: pedidosHoy.reduce((sum, p) => sum + p.total, 0),
-                kilosHoy: pedidosHoy.reduce((sum, p) => sum + p.cantidad, 0),
-                productoMasVendido: this.obtenerProductoMasVendido(pedidos),
-                clientesHoy: [...new Set(pedidosHoy.map(p => p.cafeteria))].length
-            };
+            // Crear nueva hoja
+            await this.sheets.spreadsheets.batchUpdate({
+                spreadsheetId: this.spreadsheetId,
+                requestBody: {
+                    requests: [{
+                        addSheet: {
+                            properties: {
+                                title: 'Clientes',
+                                gridProperties: {
+                                    rowCount: 1000,
+                                    columnCount: 15
+                                }
+                            }
+                        }
+                    }]
+                }
+            });
 
-            return stats;
+            // Agregar encabezados
+            const headers = [
+                'ID Cliente',
+                'WhatsApp',
+                'Empresa/Negocio',
+                'Nombre Contacto',
+                'Teléfono Contacto',
+                'Email',
+                'Dirección',
+                'Distrito',
+                'Ciudad',
+                'Fecha Registro',
+                'Última Compra',
+                'Total Pedidos',
+                'Total Comprado (S/)',
+                'Total Kg',
+                'Notas'
+            ];
+
+            await this.sheets.spreadsheets.values.update({
+                spreadsheetId: this.spreadsheetId,
+                range: 'Clientes!A1:O1',
+                valueInputOption: 'RAW',
+                requestBody: {
+                    values: [headers]
+                }
+            });
+
+            // Aplicar formato a los encabezados
+            await this.sheets.spreadsheets.batchUpdate({
+                spreadsheetId: this.spreadsheetId,
+                requestBody: {
+                    requests: [{
+                        repeatCell: {
+                            range: {
+                                sheetId: this.obtenerSheetId('Clientes'),
+                                startRowIndex: 0,
+                                endRowIndex: 1
+                            },
+                            cell: {
+                                userEnteredFormat: {
+                                    backgroundColor: { red: 0.2, green: 0.4, blue: 0.8 },
+                                    textFormat: { 
+                                        foregroundColor: { red: 1, green: 1, blue: 1 },
+                                        bold: true 
+                                    }
+                                }
+                            },
+                            fields: 'userEnteredFormat(backgroundColor,textFormat)'
+                        }
+                    }]
+                }
+            }).catch(() => {}); // Ignorar error de formato
+
+            console.log('✅ Hoja Clientes creada');
         } catch (error) {
-            console.error('❌ Error obteniendo estadísticas:', error.message);
+            console.error('Error creando hoja de clientes:', error.message);
+        }
+    }
+
+    async obtenerSheetId(nombreHoja) {
+        try {
+            const response = await this.sheets.spreadsheets.get({
+                spreadsheetId: this.spreadsheetId
+            });
+            
+            const hoja = response.data.sheets.find(
+                sheet => sheet.properties.title === nombreHoja
+            );
+            
+            return hoja ? hoja.properties.sheetId : null;
+        } catch (error) {
             return null;
         }
     }
 
-    obtenerProductoMasVendido(pedidos) {
-        const productos = {};
+    /**
+     * Buscar cliente por teléfono WhatsApp
+     */
+    async buscarCliente(telefonoWhatsApp) {
+        if (!this.initialized) return null;
         
-        pedidos.forEach(p => {
-            if (p.producto) {
-                productos[p.producto] = (productos[p.producto] || 0) + p.cantidad;
+        try {
+            // Normalizar teléfono
+            const telefonoNormalizado = telefonoWhatsApp
+                .replace('whatsapp:', '')
+                .replace(/[^0-9+]/g, '');
+            
+            // Obtener todos los clientes
+            const response = await this.sheets.spreadsheets.values.get({
+                spreadsheetId: this.spreadsheetId,
+                range: 'Clientes!A:O'
+            });
+            
+            if (!response.data.values || response.data.values.length <= 1) {
+                console.log('📊 No hay clientes registrados');
+                return null;
             }
-        });
-
-        let maxProducto = '';
-        let maxCantidad = 0;
-        
-        for (const [producto, cantidad] of Object.entries(productos)) {
-            if (cantidad > maxCantidad) {
-                maxCantidad = cantidad;
-                maxProducto = producto;
+            
+            // Buscar cliente por teléfono
+            const clientes = response.data.values.slice(1); // Omitir encabezados
+            const clienteRow = clientes.find(row => {
+                const telCliente = row[1] ? row[1].replace(/[^0-9+]/g, '') : '';
+                return telCliente === telefonoNormalizado;
+            });
+            
+            if (clienteRow) {
+                console.log(`✅ Cliente encontrado: ${clienteRow[2]}`);
+                return {
+                    idCliente: clienteRow[0],
+                    whatsapp: clienteRow[1],
+                    empresa: clienteRow[2],
+                    contacto: clienteRow[3],
+                    telefonoContacto: clienteRow[4],
+                    email: clienteRow[5],
+                    direccion: clienteRow[6],
+                    distrito: clienteRow[7],
+                    ciudad: clienteRow[8],
+                    fechaRegistro: clienteRow[9],
+                    ultimaCompra: clienteRow[10],
+                    totalPedidos: parseInt(clienteRow[11] || '0'),
+                    totalComprado: parseFloat(clienteRow[12] || '0'),
+                    totalKg: parseFloat(clienteRow[13] || '0'),
+                    notas: clienteRow[14]
+                };
             }
+            
+            console.log(`ℹ️ Cliente no encontrado: ${telefonoNormalizado}`);
+            return null;
+        } catch (error) {
+            console.error('Error buscando cliente:', error.message);
+            return null;
         }
-
-        return { nombre: maxProducto, cantidad: maxCantidad };
     }
 
-    async verificarConexion() {
-        if (!this.initialized) {
-            await this.initialize();
+    /**
+     * Guardar o actualizar cliente
+     */
+    async guardarCliente(datosCliente) {
+        if (!this.initialized) return null;
+        
+        try {
+            const telefonoNormalizado = datosCliente.whatsapp
+                .replace('whatsapp:', '')
+                .replace(/[^0-9+]/g, '');
+            
+            // Buscar si el cliente ya existe
+            const clienteExistente = await this.buscarCliente(datosCliente.whatsapp);
+            
+            if (clienteExistente) {
+                // Actualizar cliente existente
+                console.log(`📝 Actualizando cliente: ${clienteExistente.empresa}`);
+                
+                // Buscar la fila del cliente
+                const response = await this.sheets.spreadsheets.values.get({
+                    spreadsheetId: this.spreadsheetId,
+                    range: 'Clientes!A:A'
+                });
+                
+                const filaCliente = response.data.values.findIndex(
+                    row => row[0] === clienteExistente.idCliente
+                );
+                
+                if (filaCliente > 0) {
+                    const nuevosValores = [[
+                        clienteExistente.idCliente,
+                        telefonoNormalizado,
+                        datosCliente.empresa || clienteExistente.empresa,
+                        datosCliente.contacto || clienteExistente.contacto,
+                        datosCliente.telefonoContacto || clienteExistente.telefonoContacto,
+                        datosCliente.email || clienteExistente.email || '',
+                        datosCliente.direccion || clienteExistente.direccion,
+                        datosCliente.distrito || clienteExistente.distrito || '',
+                        datosCliente.ciudad || clienteExistente.ciudad || 'Lima',
+                        clienteExistente.fechaRegistro,
+                        new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' }),
+                        (clienteExistente.totalPedidos + 1).toString(),
+                        (clienteExistente.totalComprado + (datosCliente.totalPedido || 0)).toString(),
+                        (clienteExistente.totalKg + (datosCliente.cantidadKg || 0)).toString(),
+                        clienteExistente.notas || ''
+                    ]];
+                    
+                    await this.sheets.spreadsheets.values.update({
+                        spreadsheetId: this.spreadsheetId,
+                        range: `Clientes!A${filaCliente + 1}:O${filaCliente + 1}`,
+                        valueInputOption: 'RAW',
+                        requestBody: { values: nuevosValores }
+                    });
+                    
+                    console.log(`✅ Cliente actualizado: ${datosCliente.empresa}`);
+                    return clienteExistente.idCliente;
+                }
+            } else {
+                // Crear nuevo cliente
+                const idCliente = 'CLI-' + Date.now().toString().slice(-8);
+                const fechaActual = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
+                
+                console.log(`🆕 Creando nuevo cliente: ${datosCliente.empresa}`);
+                
+                const nuevosValores = [[
+                    idCliente,
+                    telefonoNormalizado,
+                    datosCliente.empresa || 'Sin nombre',
+                    datosCliente.contacto || '',
+                    datosCliente.telefonoContacto || telefonoNormalizado,
+                    datosCliente.email || '',
+                    datosCliente.direccion || '',
+                    datosCliente.distrito || '',
+                    datosCliente.ciudad || 'Lima',
+                    fechaActual,
+                    fechaActual,
+                    '1',
+                    (datosCliente.totalPedido || 0).toString(),
+                    (datosCliente.cantidadKg || 0).toString(),
+                    ''
+                ]];
+                
+                await this.sheets.spreadsheets.values.append({
+                    spreadsheetId: this.spreadsheetId,
+                    range: 'Clientes!A:O',
+                    valueInputOption: 'RAW',
+                    insertDataOption: 'INSERT_ROWS',
+                    requestBody: { values: nuevosValores }
+                });
+                
+                console.log(`✅ Nuevo cliente creado: ${datosCliente.empresa} (${idCliente})`);
+                return idCliente;
+            }
+        } catch (error) {
+            console.error('Error guardando cliente:', error.message);
+            return null;
         }
-        return this.initialized;
+    }
+
+    /**
+     * Agregar pedido con gestión de cliente
+     */
+    async agregarPedido(datosPedido) {
+        if (!this.initialized) return false;
+
+        try {
+            // Primero gestionar el cliente
+            const idCliente = await this.guardarCliente({
+                whatsapp: datosPedido.telefono,
+                empresa: datosPedido.cafeteria || datosPedido.nombreNegocio,
+                contacto: datosPedido.contacto?.split(' - ')[0] || '',
+                telefonoContacto: datosPedido.contacto?.split(' - ')[1] || datosPedido.telefono,
+                direccion: datosPedido.direccion,
+                totalPedido: datosPedido.total,
+                cantidadKg: datosPedido.cantidad
+            });
+            
+            // Formatear fecha y hora
+            const fecha = new Date();
+            const fechaStr = fecha.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+            const horaStr = fecha.toLocaleTimeString('es-PE', { timeZone: 'America/Lima' });
+            
+            // Preparar datos del pedido
+            const values = [[
+                datosPedido.id || `PED-${Date.now().toString().slice(-6)}`,
+                fechaStr,
+                horaStr,
+                datosPedido.cafeteria || datosPedido.nombreNegocio || 'Sin nombre',
+                datosPedido.contacto?.split(' - ')[0] || 'Sin contacto',
+                datosPedido.telefono || 'Sin teléfono',
+                datosPedido.direccion || 'Sin dirección',
+                datosPedido.producto?.nombre || 'Producto',
+                datosPedido.cantidad || 0,
+                datosPedido.producto?.precio || 0,
+                datosPedido.subtotal || datosPedido.total || 0,
+                datosPedido.descuento || 0,
+                datosPedido.total || 0,
+                datosPedido.metodoPago || 'Transferencia',
+                datosPedido.estado || 'Pendiente',
+                datosPedido.urlComprobante || '',
+                datosPedido.observaciones || '',
+                datosPedido.esReorden ? 'Reorden' : 'Nuevo',
+                idCliente || '',
+                datosPedido.telefono || ''
+            ]];
+
+            // Agregar a la hoja
+            const response = await this.sheets.spreadsheets.values.append({
+                spreadsheetId: this.spreadsheetId,
+                range: 'PedidosWhatsApp!A:T',
+                valueInputOption: 'RAW',
+                insertDataOption: 'INSERT_ROWS',
+                requestBody: {
+                    values: values
+                }
+            });
+
+            console.log(`✅ Pedido ${datosPedido.id} agregado a Google Sheets`);
+            console.log(`👤 Cliente: ${idCliente}`);
+            return true;
+        } catch (error) {
+            console.error('❌ Error agregando pedido a Sheets:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Obtener estadísticas del cliente
+     */
+    async obtenerEstadisticasCliente(telefonoWhatsApp) {
+        const cliente = await this.buscarCliente(telefonoWhatsApp);
+        
+        if (cliente) {
+            return {
+                existe: true,
+                ...cliente,
+                esClienteFrecuente: cliente.totalPedidos >= 3,
+                esClienteVIP: cliente.totalComprado >= 1000
+            };
+        }
+        
+        return {
+            existe: false,
+            esNuevo: true
+        };
     }
 }
 
-// Singleton
-const googleSheets = new GoogleSheetsIntegration();
+// Crear instancia única
+const sheetsService = new GoogleSheetsIntegration();
 
-module.exports = googleSheets;
+module.exports = sheetsService;
