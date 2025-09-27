@@ -109,6 +109,11 @@ class NotificationService {
     async notificarComprobanteParaValidacion(pedido, urlComprobante = null, fromNumber = null) {
         if (!this.gruposConfigured) return;
         
+        console.log(`🔍 Preparando notificación de validación:`);
+        console.log(`   Pedido: ${pedido.id}`);
+        console.log(`   URL Comprobante: ${urlComprobante || 'No disponible'}`);
+        console.log(`   Cliente: ${fromNumber}`);
+        
         const hora = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
         
         let mensaje = `⚠️ *VALIDAR COMPROBANTE*\n`;
@@ -127,8 +132,9 @@ class NotificationService {
         mensaje += `📸 *Comprobante recibido*\n`;
         
         if (urlComprobante) {
-            mensaje += `🔗 Ver imagen: ${urlComprobante}\n\n`;
+            mensaje += `🔗 Ver imagen: ${urlComprobante}\n`;
         }
+        mensaje += `\n`;
         
         mensaje += `*ACCIONES REQUERIDAS:*\n`;
         mensaje += `1️⃣ Verificar en BCP/App\n`;

@@ -1391,7 +1391,8 @@ app.post('/webhook', async (req, res) => {
                     );
                     
                     if (resultado.success) {
-                        console.log(`✅ Comprobante subido a Drive: ${resultado.webViewLink}`);
+                        console.log(`✅ Comprobante subido a Drive`);
+                        console.log(`🔗 Link del comprobante: ${resultado.webViewLink}`);
                         
                         // Procesar como si hubiera escrito "listo"
                         const respuestaComprobante = await manejarMensaje(From, 'listo');
@@ -1401,13 +1402,16 @@ app.post('/webhook', async (req, res) => {
                             .find(p => p.telefono === From && p.estado === 'Pendiente verificación');
                         
                         // Enviar notificación con link del comprobante para validación
-                        if (notificationService && pedidoActualizado) {
+                        if (notificationService && pedidoActualizado && resultado.webViewLink) {
+                            console.log(`📨 Enviando notificación con link: ${resultado.webViewLink}`);
                             await notificationService.notificarComprobanteParaValidacion(
                                 pedidoActualizado,
-                                resultado.webViewLink || resultado.filePath,
-                                From // Pasar el número del cliente
+                                resultado.webViewLink,
+                                From
                             );
                             console.log(`📤 Notificación con comprobante enviada para validación`);
+                        } else {
+                            console.log(`⚠️ No se envió link en la notificación`);
                         }
                         
                         // Agregar info del link solo si NO es exitoso
