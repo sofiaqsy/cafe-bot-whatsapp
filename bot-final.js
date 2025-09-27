@@ -80,6 +80,15 @@ if (!DEV_MODE && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
     console.log('⚠️ Twilio no configurado - Ejecutando en modo demo');
 }
 
+// Inicializar servicio de notificaciones
+let notificationService = null;
+
+if (twilioConfigured) {
+    const NotificationService = require('./notification-service');
+    notificationService = new NotificationService(client, TWILIO_PHONE_NUMBER);
+    console.log('🔔 Servicio de notificaciones inicializado');
+}
+
 // Estado de conversaciones
 const userStates = new Map();
 const pedidosConfirmados = new Map();
@@ -781,6 +790,12 @@ _Escribe *"listo"* o *"enviado"* para confirmar_
                         esReorden: userState.data.esReorden || false
                     };
                     
+                    // Enviar notificación para validación si está configurado
+                    if (notificationService && pedidoCompleto.comprobanteRecibido) {
+                        await notificationService.notificarComprobanteParaValidacion(pedidoCompleto);
+                        console.log(`📤 Notificación de validación enviada para pedido ${pedidoId}`);
+                    }
+                    
                     pedidosConfirmados.set(pedidoId, pedidoCompleto);
 
                     // Guardar en Google Sheets si está configurado
@@ -878,6 +893,54 @@ _O escribe *cancelar* para cancelar el proceso_`;
                 break;
 
             case 'consulta_pedido':
+                // Verificar si el mensaje viene de un grupo
+                const esGrupo = from.includes('@g.us');
+                
+                // Si es un grupo y contiene validación
+                if (esGrupo && (mensaje.includes('✅') || mensaje.toLowerCase().includes('verificado'))) {
+                    // Buscar ID de pedido en el mensaje
+                    const regexPedido = /CAF-\d{6}/g;
+                    const pedidosEnMensaje = mensaje.match(regexPedido);
+                    
+                    if (pedidosEnMensaje && pedidosEnMensaje.length > 0) {
+                        const pedidoId = pedidosEnMensaje[0];
+                        const pedido = pedidosConfirmados.get(pedidoId);
+                        
+                        if (pedido) {
+                            // Actualizar estado del pedido
+                            pedido.estado = 'Pago verificado ✅';
+                            pedido.fechaVerificacion = new Date();
+                            pedidosConfirmados.set(pedidoId, pedido);
+                            
+                            // Notificar al cliente que su pago fue verificado
+                            if (pedido.telefono) {
+                                // Asegurarse de no enviar al grupo, solo al cliente
+                                const telefonoCliente = pedido.telefono.startsWith('whatsapp:') ? 
+                                    pedido.telefono : `whatsapp:${pedido.telefono}`;
+                                
+                                // Solo notificar si NO es un grupo
+                                if (!telefonoCliente.includes('@g.us')) {
+                                    await enviarMensaje(telefonoCliente, 
+                                        `✅ *PAGO VERIFICADO*\n\n` +
+                                        `Tu pedido ${pedidoId} ha sido verificado.\n` +
+                                        `Prepararemos tu pedido de inmediato.\n\n` +
+                                        `⏰ Entrega estimada: 24-48 horas\n\n` +
+                                        `¡Gracias por tu compra! ☕`
+                                    );
+                                    console.log(`✅ Cliente notificado: ${telefonoCliente}`);
+                                }
+                            }
+                            
+                            respuesta = `✅ Pedido ${pedidoId} marcado como verificado\n\nCliente notificado automáticamente.`;
+                        } else {
+                            respuesta = `❌ No se encontró el pedido ${pedidosEnMensaje[0]}`;
+                        }
+                        userState.step = 'validacion_completada';
+                        break;
+                    }
+                }
+                
+                // Flujo normal de consulta de pedido
                 const pedido = pedidosConfirmados.get(mensaje.toUpperCase());
                 if (pedido) {
                     const tiempoTranscurrido = Math.round((new Date() - new Date(pedido.fecha)) / (1000 * 60 * 60));
@@ -1277,6 +1340,20 @@ app.post('/webhook', async (req, res) => {
     
     console.log(`📨 Mensaje recibido de ${From}: ${Body}`);
     
+    // Detectar si el mensaje viene de un grupo
+    const esGrupo = From.includes('@g.us');
+    
+    // Si es un grupo y tiene validación de pago, procesarlo
+    if (esGrupo && Body && (Body.includes('✅') || Body.toLowerCase().includes('verificado'))) {
+        const respuesta = await manejarMensaje(From, Body);
+        // Solo responder si hay respuesta (evitar spam en el grupo)
+        if (respuesta && respuesta.includes('marcado como verificado')) {
+            await enviarMensaje(From, respuesta);
+        }
+        res.status(200).send('OK');
+        return;
+    }
+    
     // Si hay imágenes adjuntas
     if (NumMedia && parseInt(NumMedia) > 0) {
         console.log(`📷 Imagen recibida: ${MediaUrl0}`);
@@ -1318,6 +1395,19 @@ app.post('/webhook', async (req, res) => {
                         
                         // Procesar como si hubiera escrito "listo"
                         const respuestaComprobante = await manejarMensaje(From, 'listo');
+                        
+                        // Obtener el pedido actualizado
+                        const pedidoActualizado = Array.from(pedidosConfirmados.values())
+                            .find(p => p.telefono === From && p.estado === 'Pendiente verificación');
+                        
+                        // Enviar notificación con link del comprobante para validación
+                        if (notificationService && pedidoActualizado) {
+                            await notificationService.notificarComprobanteParaValidacion(
+                                pedidoActualizado,
+                                resultado.webViewLink || resultado.filePath
+                            );
+                            console.log(`📤 Notificación con comprobante enviada para validación`);
+                        }
                         
                         // Agregar info del link de Drive
                         const respuestaFinal = respuestaComprobante + 
