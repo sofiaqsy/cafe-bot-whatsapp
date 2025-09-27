@@ -1418,8 +1418,29 @@ app.post('/webhook', async (req, res) => {
                         await enviarMensaje(From, '❌ Error al guardar el comprobante. Por favor, escribe "listo" para continuar.');
                     }
                 } catch (error) {
-                    console.error('Error procesando imagen:', error);
-                    await enviarMensaje(From, '⚠️ Error procesando la imagen. Escribe "listo" para continuar.');
+                    console.error('Error procesando imagen:', error.message);
+                    
+                    // Aunque falle la imagen, procesar el pedido
+                    console.log('⚠️ Procesando pedido aunque falle la imagen...');
+                    
+                    // Procesar como si hubiera escrito "listo"
+                    const respuestaComprobante = await manejarMensaje(From, 'listo');
+                    
+                    // Obtener el pedido actualizado
+                    const pedidoActualizado = Array.from(pedidosConfirmados.values())
+                        .find(p => p.telefono === From && p.estado === 'Pendiente verificación');
+                    
+                    // Enviar notificación sin link pero con aviso
+                    if (notificationService && pedidoActualizado) {
+                        await notificationService.notificarComprobanteParaValidacion(
+                            pedidoActualizado,
+                            null // Sin link porque falló
+                        );
+                        console.log(`📤 Notificación enviada (sin imagen)`);
+                    }
+                    
+                    await enviarMensaje(From, respuestaComprobante + 
+                        '\n\n⚠️ _Nota: Hubo un problema guardando la imagen, pero tu pedido fue registrado correctamente._');
                 }
             } else {
                 // Drive no configurado, pero aceptar la imagen como confirmación

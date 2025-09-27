@@ -118,21 +118,58 @@ class GoogleDriveService {
     async subirImagenDesdeURL(imageUrl, fileName, metadata = {}) {
         try {
             console.log(`📸 Procesando imagen: ${fileName}`);
+            console.log(`🔗 URL de origen: ${imageUrl}`);
             
-            // Descargar imagen de Twilio
+            // Descargar imagen de Twilio con reintentos
             const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
             const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
             
-            const response = await axios({
-                method: 'GET',
-                url: imageUrl,
-                responseType: this.useLocalStorage ? 'arraybuffer' : 'stream',
-                auth: {
-                    username: twilioAccountSid,
-                    password: twilioAuthToken
-                },
-                timeout: 30000
-            });
+            let response;
+            let intentos = 0;
+            const maxIntentos = 3;
+            
+            while (intentos < maxIntentos) {
+                try {
+                    intentos++;
+                    console.log(`🔄 Intento ${intentos} de descargar imagen...`);
+                    
+                    response = await axios({
+                        method: 'GET',
+                        url: imageUrl,
+                        responseType: this.useLocalStorage ? 'arraybuffer' : 'stream',
+                        auth: {
+                            username: twilioAccountSid,
+                            password: twilioAuthToken
+                        },
+                        timeout: 15000,
+                        maxRedirects: 5,
+                        validateStatus: function (status) {
+                            return status >= 200 && status < 500; // Aceptar más códigos
+                        }
+                    });
+                    
+                    if (response.status === 200) {
+                        console.log('✅ Imagen descargada correctamente');
+                        break;
+                    } else if (response.status === 404) {
+                        console.log('⚠️ Imagen no encontrada (404), reintentando...');
+                        await new Promise(resolve => setTimeout(resolve, 1000)); // Esperar 1 segundo
+                    } else {
+                        console.log(`⚠️ Respuesta con código ${response.status}`);
+                        break;
+                    }
+                } catch (downloadError) {
+                    console.log(`❌ Error en intento ${intentos}:`, downloadError.message);
+                    if (intentos >= maxIntentos) {
+                        throw downloadError;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+            
+            if (!response || response.status !== 200) {
+                throw new Error(`No se pudo descargar la imagen (código ${response?.status || 'desconocido'})`);
+            }
 
             // Si usamos almacenamiento local
             if (this.useLocalStorage) {
