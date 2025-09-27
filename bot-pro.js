@@ -1,7 +1,11 @@
 const express = require('express');
 const dotenv = require('dotenv');
+const imageHandler = require('./image-handler');
 
 dotenv.config();
+
+// Inicializar carpeta de uploads
+imageHandler.ensureUploadsDir();
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
@@ -1097,14 +1101,22 @@ app.get('/history', (req, res) => {
     `);
 });
 
-// Webhook de Twilio
+// Webhook de Twilio - MEJORADO PARA MANEJAR IMÁGENES
 app.post('/webhook', async (req, res) => {
-    const { From, Body } = req.body;
+    const { From, Body, NumMedia, MediaUrl0 } = req.body;
     
     console.log(`📨 Mensaje recibido de ${From}: ${Body}`);
     
+    // Verificar si hay imágenes adjuntas
+    let mediaUrl = null;
+    if (NumMedia && parseInt(NumMedia) > 0 && MediaUrl0) {
+        mediaUrl = MediaUrl0;
+        console.log(`📷 Imagen recibida: ${mediaUrl}`);
+    }
+    
     try {
-        const respuesta = await manejarMensaje(From, Body);
+        // Pasar la URL de la imagen al manejador de mensajes
+        const respuesta = await manejarMensaje(From, Body, mediaUrl);
         await enviarMensaje(From, respuesta);
         res.status(200).send('OK');
     } catch (error) {

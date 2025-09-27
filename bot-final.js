@@ -713,6 +713,11 @@ _Incluye distrito y referencia_`;
                     direccion: userState.data.direccion
                 });
                 
+                // IMPORTANTE: Actualizar el estado ANTES de enviar el mensaje
+                userState.step = 'esperando_comprobante';
+                userStates.set(from, userState);
+                console.log(`🔄 Estado actualizado para ${from}: esperando_comprobante`);
+                
                 respuesta = `✅ Dirección guardada: *${mensaje}*
 
 ━━━━━━━━━━━━━━━━━
@@ -1275,52 +1280,69 @@ app.post('/webhook', async (req, res) => {
     // Si hay imágenes adjuntas
     if (NumMedia && parseInt(NumMedia) > 0) {
         console.log(`📷 Imagen recibida: ${MediaUrl0}`);
+        console.log(`📷 Tipo: ${MediaContentType0}`);
         
         // Obtener el estado del usuario
         const userState = userStates.get(From) || { step: 'inicio', data: {} };
+        console.log(`👤 Estado del usuario ${From}: ${userState.step}`);
+        console.log(`🔧 Drive configurado: ${driveConfigured}`);
         
-        // Si está esperando comprobante y hay Drive configurado
-        if (userState.step === 'esperando_comprobante' && driveConfigured) {
-            try {
-                const pedidoId = userState.data.pedidoTempId || 'CAF-' + Date.now().toString().slice(-6);
-                const fileName = `${pedidoId}_${Date.now()}.jpg`;
-                
-                // Metadata del comprobante
-                const metadata = {
-                    pedidoId: pedidoId,
-                    cliente: userState.data.empresa || 'Sin empresa',
-                    telefono: From,
-                    fecha: new Date().toISOString(),
-                    total: userState.data.total || 0
-                };
-                
-                // Subir imagen a Drive
-                const resultado = await driveService.subirImagenDesdeURL(
-                    MediaUrl0,
-                    fileName,
-                    metadata
-                );
-                
-                if (resultado.success) {
-                    console.log(`✅ Comprobante subido a Drive: ${resultado.webViewLink}`);
+        // Si está esperando comprobante
+        if (userState.step === 'esperando_comprobante') {
+            // Verificar si Drive está configurado
+            if (driveConfigured && driveService) {
+                try {
+                    const pedidoId = userState.data.pedidoTempId || 'CAF-' + Date.now().toString().slice(-6);
+                    const fileName = `${pedidoId}_${Date.now()}.jpg`;
                     
-                    // Simular que se recibió el comprobante
-                    const respuestaComprobante = await manejarMensaje(From, '📸');
+                    console.log(`📁 Subiendo imagen como: ${fileName}`);
                     
-                    // Agregar info del link de Drive
-                    const respuestaFinal = respuestaComprobante + 
-                        `\n\n🔗 *Comprobante guardado:*\n${resultado.webViewLink}`;
+                    // Metadata del comprobante
+                    const metadata = {
+                        pedidoId: pedidoId,
+                        cliente: userState.data.empresa || 'Sin empresa',
+                        telefono: From,
+                        fecha: new Date().toISOString(),
+                        total: userState.data.total || 0
+                    };
                     
-                    await enviarMensaje(From, respuestaFinal);
-                } else {
-                    await enviarMensaje(From, '❌ Error al guardar el comprobante. Por favor, escribe "listo" para continuar.');
+                    // Subir imagen a Drive
+                    const resultado = await driveService.subirImagenDesdeURL(
+                        MediaUrl0,
+                        fileName,
+                        metadata
+                    );
+                    
+                    if (resultado.success) {
+                        console.log(`✅ Comprobante subido a Drive: ${resultado.webViewLink}`);
+                        
+                        // Procesar como si hubiera escrito "listo"
+                        const respuestaComprobante = await manejarMensaje(From, 'listo');
+                        
+                        // Agregar info del link de Drive
+                        const respuestaFinal = respuestaComprobante + 
+                            `\n\n🔗 *Comprobante guardado en Drive:*\n${resultado.webViewLink}`;
+                        
+                        await enviarMensaje(From, respuestaFinal);
+                    } else {
+                        console.error('❌ Error subiendo a Drive:', resultado.error);
+                        await enviarMensaje(From, '❌ Error al guardar el comprobante. Por favor, escribe "listo" para continuar.');
+                    }
+                } catch (error) {
+                    console.error('Error procesando imagen:', error);
+                    await enviarMensaje(From, '⚠️ Error procesando la imagen. Escribe "listo" para continuar.');
                 }
-            } catch (error) {
-                console.error('Error procesando imagen:', error);
-                await enviarMensaje(From, '⚠️ Error procesando la imagen. Escribe "listo" para continuar.');
+            } else {
+                // Drive no configurado, pero aceptar la imagen como confirmación
+                console.log('⚠️ Drive no configurado, procesando como confirmación de pago');
+                
+                // Procesar como confirmación
+                const respuesta = await manejarMensaje(From, 'listo');
+                await enviarMensaje(From, respuesta + '\n\n📷 _Imagen recibida como comprobante_');
             }
         } else {
-            // No está en el paso correcto o no hay Drive
+            // No está en el paso correcto
+            console.log(`⚠️ Imagen recibida en paso incorrecto: ${userState.step}`);
             await enviarMensaje(From, '📷 Imagen recibida pero no esperada en este momento.\n\nEscribe *menu* para ver opciones.');
         }
     } else {
