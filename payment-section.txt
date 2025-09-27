@@ -1,0 +1,96 @@
+            case 'datos_telefono':
+                userState.data.telefono = mensaje;
+                respuesta = `✅ Teléfono: *${mensaje}*
+
+Ingresa la *dirección de entrega completa*:
+_Incluye distrito y referencia_`;
+                userState.step = 'datos_direccion';
+                break;
+
+            case 'datos_direccion':
+                userState.data.direccion = mensaje;
+                
+                // Generar ID único
+                const pedidoId = 'CAF-' + Date.now().toString().slice(-6);
+                
+                const pedidoCompleto = {
+                    id: pedidoId,
+                    fecha: new Date(),
+                    producto: userState.data.producto,
+                    cantidad: userState.data.cantidad,
+                    total: userState.data.total,
+                    empresa: userState.data.empresa,
+                    contacto: userState.data.contacto,
+                    telefono: userState.data.telefono,
+                    direccion: userState.data.direccion,
+                    metodoPago: 'Transferencia bancaria',
+                    estado: 'Confirmado'
+                };
+                
+                pedidosConfirmados.set(pedidoId, pedidoCompleto);
+
+                // Guardar en Google Sheets si está configurado
+                if (sheetsConfigured && googleSheets && googleSheets.initialized) {
+                    try {
+                        await googleSheets.agregarPedido({
+                            id: pedidoId,
+                            nombreNegocio: userState.data.empresa,
+                            cafeteria: userState.data.empresa,
+                            producto: userState.data.producto,
+                            cantidad: userState.data.cantidad,
+                            subtotal: userState.data.total,
+                            descuento: 0,
+                            total: userState.data.total,
+                            direccion: userState.data.direccion,
+                            contacto: `${userState.data.contacto} - ${userState.data.telefono}`,
+                            telefono: from,
+                            metodoPago: 'Transferencia bancaria',
+                            observaciones: '',
+                            estado: 'Confirmado'
+                        });
+                        console.log('✅ Pedido guardado en Google Sheets');
+                    } catch (error) {
+                        console.error('⚠️ Error guardando en Google Sheets:', error.message);
+                    }
+                }
+
+                respuesta = `✅ *¡PEDIDO CONFIRMADO!*
+━━━━━━━━━━━━━━━━━
+
+📋 *Código:* ${pedidoId}
+📅 *Fecha:* ${new Date().toLocaleDateString('es-PE')}
+
+*RESUMEN:*
+📦 ${userState.data.producto.nombre}
+⚖️ ${userState.data.cantidad}kg
+💰 *Total: ${formatearPrecio(userState.data.total)}*
+
+*CLIENTE:*
+🏢 ${userState.data.empresa}
+👤 ${userState.data.contacto}
+📱 ${userState.data.telefono}
+📍 ${userState.data.direccion}
+
+━━━━━━━━━━━━━━━━━
+
+*MÉTODO DE PAGO*
+💳 Transferencia a la siguiente cuenta:
+
+*Mi número de cuenta BCP Soles es:*
+*1917137473085*
+
+*Mi número de cuenta interbancaria es:*
+*00219100713747308552*
+
+━━━━━━━━━━━━━━━━━
+⏰ *Entrega:* 24-48 horas
+📞 Te contactaremos para confirmar el pago
+
+💡 *Guarda tu código ${pedidoId}*
+
+¡Gracias por tu compra! ☕
+
+_Escribe *menu* para nuevo pedido_`;
+                
+                userState = { step: 'pedido_completado', data: {} };
+                break;

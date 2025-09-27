@@ -1,11 +1,11 @@
 {
   "name": "cafe-bot-whatsapp",
-  "version": "2.1.0",
+  "version": "4.0.0",
   "description": "Bot de WhatsApp para gestión de pedidos de café con integración Google Sheets",
-  "main": "bot.js",
+  "main": "bot-final.js",
   "scripts": {
-    "start": "node bot.js",
-    "dev": "nodemon bot.js",
+    "start": "node bot-final.js",
+    "dev": "nodemon bot-final.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
