@@ -37,6 +37,28 @@ if (process.env.GOOGLE_SPREADSHEET_ID && process.env.GOOGLE_SERVICE_ACCOUNT_KEY)
     console.log('ℹ️ Google Sheets no configurado (opcional)');
 }
 
+// Inicializar Google Drive
+let driveService = null;
+let driveConfigured = false;
+
+if (process.env.DRIVE_ENABLED === 'TRUE') {
+    try {
+        driveService = require('./google-drive-service');
+        driveService.initialize().then(success => {
+            if (success) {
+                driveConfigured = true;
+                console.log('✅ Google Drive conectado para comprobantes');
+            } else {
+                console.log('⚠️ Google Drive no se pudo inicializar');
+            }
+        });
+    } catch (error) {
+        console.log('⚠️ Error cargando Google Drive:', error.message);
+    }
+} else {
+    console.log('ℹ️ Google Drive no configurado para comprobantes');
+}
+
 // Inicializar Twilio
 let client = null;
 let twilioConfigured = false;
@@ -73,7 +95,9 @@ const BUSINESS_CONFIG = {
     delivery_min: 5,
     // Datos bancarios
     bcp_cuenta: "1917137473085",
-    cci_cuenta: "00219100713747308552"
+    cci_cuenta: "00219100713747308552",
+    // Formulario de comprobantes
+    form_comprobantes: process.env.GOOGLE_FORM_URL || "https://forms.gle/CONFIGURAR_AQUI"
 };
 
 // Productos disponibles
@@ -677,6 +701,10 @@ _Incluye distrito y referencia_`;
             case 'datos_direccion':
                 userState.data.direccion = mensaje;
                 
+                // Generar ID del pedido anticipadamente
+                const pedidoTempId = 'CAF-' + Date.now().toString().slice(-6);
+                userState.data.pedidoTempId = pedidoTempId;
+                
                 // Guardar datos del cliente para futuros pedidos
                 datosClientes.set(from, {
                     empresa: userState.data.empresa,
@@ -704,28 +732,33 @@ _Incluye distrito y referencia_`;
 
 💰 *Monto a transferir: ${formatearPrecio(userState.data.total)}*
 
-📸 *Una vez realizada la transferencia, envía la foto del voucher o comprobante*
+📸 *ENVÍO DE COMPROBANTE:*
+${driveConfigured ? 
+`✅ *Envía la foto del comprobante por WhatsApp*
+_La imagen se guardará automáticamente_` : 
+`*Opción 1 - Formulario Web 🌐:*
+${BUSINESS_CONFIG.form_comprobantes}
+_Sube tu imagen desde el teléfono_`}
 
-_El pedido será confirmado tras verificar el pago_`;
+*Opción alternativa:*
+_Escribe *"listo"* o *"enviado"* para confirmar_
+
+💡 *Tu código de pedido es: ${pedidoTempId}*`;
                 
                 userState.step = 'esperando_comprobante';
                 break;
 
             case 'esperando_comprobante':
-                // Detectar si es una imagen
-                const esImagen = mensaje.toLowerCase().includes('imagen') || 
-                               mensaje.toLowerCase().includes('foto') || 
-                               mensaje.toLowerCase().includes('comprobante') ||
-                               mensaje.toLowerCase().includes('voucher') ||
-                               mensaje.toLowerCase().includes('enviado') ||
-                               mensaje.toLowerCase().includes('listo') ||
-                               mensaje === '📸' || 
-                               mensaje === '📷' ||
-                               mensaje === '✅';
+                // Detectar si es una imagen (esto se maneja en el webhook ahora)
+                // o si es confirmación por texto
+                const esConfirmacion = mensaje.toLowerCase().includes('listo') ||
+                                      mensaje.toLowerCase().includes('enviado') ||
+                                      mensaje.toLowerCase() === 'ok' ||
+                                      mensaje === '✅';
                 
-                if (esImagen || mensaje.toLowerCase() === 'ok') {
-                    // Generar ID único
-                    const pedidoId = 'CAF-' + Date.now().toString().slice(-6);
+                if (esConfirmacion) {
+                    // Usar el ID generado previamente o crear uno nuevo
+                    const pedidoId = userState.data.pedidoTempId || 'CAF-' + Date.now().toString().slice(-6);
                     
                     const pedidoCompleto = {
                         id: pedidoId,
@@ -1235,18 +1268,72 @@ app.post('/test-message', async (req, res) => {
 
 // Webhook de Twilio
 app.post('/webhook', async (req, res) => {
-    const { From, Body } = req.body;
+    const { From, Body, NumMedia, MediaUrl0, MediaContentType0 } = req.body;
     
     console.log(`📨 Mensaje recibido de ${From}: ${Body}`);
     
-    try {
-        const respuesta = await manejarMensaje(From, Body);
-        await enviarMensaje(From, respuesta);
-        res.status(200).send('OK');
-    } catch (error) {
-        console.error('Error en webhook:', error);
-        res.status(200).send('OK');
+    // Si hay imágenes adjuntas
+    if (NumMedia && parseInt(NumMedia) > 0) {
+        console.log(`📷 Imagen recibida: ${MediaUrl0}`);
+        
+        // Obtener el estado del usuario
+        const userState = userStates.get(From) || { step: 'inicio', data: {} };
+        
+        // Si está esperando comprobante y hay Drive configurado
+        if (userState.step === 'esperando_comprobante' && driveConfigured) {
+            try {
+                const pedidoId = userState.data.pedidoTempId || 'CAF-' + Date.now().toString().slice(-6);
+                const fileName = `${pedidoId}_${Date.now()}.jpg`;
+                
+                // Metadata del comprobante
+                const metadata = {
+                    pedidoId: pedidoId,
+                    cliente: userState.data.empresa || 'Sin empresa',
+                    telefono: From,
+                    fecha: new Date().toISOString(),
+                    total: userState.data.total || 0
+                };
+                
+                // Subir imagen a Drive
+                const resultado = await driveService.subirImagenDesdeURL(
+                    MediaUrl0,
+                    fileName,
+                    metadata
+                );
+                
+                if (resultado.success) {
+                    console.log(`✅ Comprobante subido a Drive: ${resultado.webViewLink}`);
+                    
+                    // Simular que se recibió el comprobante
+                    const respuestaComprobante = await manejarMensaje(From, '📸');
+                    
+                    // Agregar info del link de Drive
+                    const respuestaFinal = respuestaComprobante + 
+                        `\n\n🔗 *Comprobante guardado:*\n${resultado.webViewLink}`;
+                    
+                    await enviarMensaje(From, respuestaFinal);
+                } else {
+                    await enviarMensaje(From, '❌ Error al guardar el comprobante. Por favor, escribe "listo" para continuar.');
+                }
+            } catch (error) {
+                console.error('Error procesando imagen:', error);
+                await enviarMensaje(From, '⚠️ Error procesando la imagen. Escribe "listo" para continuar.');
+            }
+        } else {
+            // No está en el paso correcto o no hay Drive
+            await enviarMensaje(From, '📷 Imagen recibida pero no esperada en este momento.\n\nEscribe *menu* para ver opciones.');
+        }
+    } else {
+        // Mensaje de texto normal
+        try {
+            const respuesta = await manejarMensaje(From, Body);
+            await enviarMensaje(From, respuesta);
+        } catch (error) {
+            console.error('Error en webhook:', error);
+        }
     }
+    
+    res.status(200).send('OK');
 });
 
 // Panel admin
