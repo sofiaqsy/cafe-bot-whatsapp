@@ -1,0 +1,32 @@
+{
+  "name": "cafe-bot-whatsapp",
+  "version": "2.0.0",
+  "description": "Bot de WhatsApp para gestión de pedidos de café",
+  "main": "bot-seguimiento.js",
+  "scripts": {
+    "start": "node bot-seguimiento.js",
+    "dev": "nodemon bot-seguimiento.js",
+    "start:google": "node bot-google-drive-heroku.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "twilio": "^4.19.0",
+    "dotenv": "^16.3.1",
+    "moment": "^2.29.4",
+    "pg": "^8.11.3",
+    "googleapis": "^118.0.0",
+    "csv-writer": "^1.6.0",
+    "csv-parser": "^3.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=7.0.0"
+  },
+  "keywords": ["whatsapp", "twilio", "cafe", "bot"],
+  "author": "Coffee Express",
+  "license": "MIT"
+}
