@@ -792,7 +792,7 @@ _Escribe *"listo"* o *"enviado"* para confirmar_
                     
                     // Enviar notificación para validación si está configurado
                     if (notificationService && pedidoCompleto.comprobanteRecibido) {
-                        await notificationService.notificarComprobanteParaValidacion(pedidoCompleto);
+                        await notificationService.notificarComprobanteParaValidacion(pedidoCompleto, null, from);
                         console.log(`📤 Notificación de validación enviada para pedido ${pedidoId}`);
                     }
                     
@@ -1404,7 +1404,8 @@ app.post('/webhook', async (req, res) => {
                         if (notificationService && pedidoActualizado) {
                             await notificationService.notificarComprobanteParaValidacion(
                                 pedidoActualizado,
-                                resultado.webViewLink || resultado.filePath
+                                resultado.webViewLink || resultado.filePath,
+                                From // Pasar el número del cliente
                             );
                             console.log(`📤 Notificación con comprobante enviada para validación`);
                         }
@@ -1434,7 +1435,8 @@ app.post('/webhook', async (req, res) => {
                     if (notificationService && pedidoActualizado) {
                         await notificationService.notificarComprobanteParaValidacion(
                             pedidoActualizado,
-                            null // Sin link porque falló
+                            null, // Sin link porque falló
+                            From // Pasar el número del cliente
                         );
                         console.log(`📤 Notificación enviada (sin imagen)`);
                     }

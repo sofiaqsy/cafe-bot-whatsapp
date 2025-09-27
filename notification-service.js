@@ -106,7 +106,7 @@ class NotificationService {
     }
     
     // Notificar pago recibido PARA VALIDACIÓN
-    async notificarComprobanteParaValidacion(pedido, urlComprobante = null) {
+    async notificarComprobanteParaValidacion(pedido, urlComprobante = null, fromNumber = null) {
         if (!this.gruposConfigured) return;
         
         const hora = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
@@ -137,16 +137,39 @@ class NotificationService {
         
         mensaje += `⏰ *Validar en máx. 30 min*`;
         
-        // Enviar SOLO a admin para validación
+        // Normalizar el número del cliente para comparación
+        const clienteNumero = fromNumber ? fromNumber.replace('whatsapp:', '') : '';
+        
+        // Enviar SOLO a admin para validación (si no es el mismo cliente)
         if (this.grupos.admin) {
-            await this.enviarNotificacion(this.grupos.admin, mensaje);
+            const adminNumero = this.grupos.admin.replace('whatsapp:', '');
+            if (adminNumero !== clienteNumero) {
+                await this.enviarNotificacion(this.grupos.admin, mensaje);
+            } else {
+                console.log('⏭️ Saltando notificación admin: mismo número que cliente');
+            }
         }
         
         if (this.grupos.adminPersonal) {
-            await this.enviarNotificacion(this.grupos.adminPersonal, mensaje);
+            const adminPersonalNumero = this.grupos.adminPersonal.replace('whatsapp:', '');
+            if (adminPersonalNumero !== clienteNumero) {
+                await this.enviarNotificacion(this.grupos.adminPersonal, mensaje);
+            } else {
+                console.log('⏭️ Saltando notificación personal: mismo número que cliente');
+            }
         }
         
-        console.log(`📤 Notificación de validación enviada para pedido ${pedido.id}`);
+        // Notificar a ventas si no es el mismo número
+        if (this.grupos.ventas) {
+            const ventasNumero = this.grupos.ventas.replace('whatsapp:', '');
+            if (ventasNumero !== clienteNumero) {
+                await this.enviarNotificacion(this.grupos.ventas, mensaje);
+            } else {
+                console.log('⏭️ Saltando notificación ventas: mismo número que cliente');
+            }
+        }
+        
+        console.log(`📤 Notificación de validación procesada para pedido ${pedido.id}`);
     }
     
     // Formatear mensaje de pedido completo
