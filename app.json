@@ -1,0 +1,55 @@
+{
+  "name": "cafe-whatsapp-bot",
+  "description": "Bot de WhatsApp para pedidos de café con integración Excel",
+  "repository": "https://github.com/sofiaqsy/cafe-bot-whatsapp",
+  "keywords": ["whatsapp", "twilio", "cafe", "bot", "excel"],
+  "env": {
+    "TWILIO_ACCOUNT_SID": {
+      "description": "Tu Account SID de Twilio",
+      "required": true
+    },
+    "TWILIO_AUTH_TOKEN": {
+      "description": "Tu Auth Token de Twilio",
+      "required": true
+    },
+    "TWILIO_PHONE_NUMBER": {
+      "description": "Número de WhatsApp de Twilio (formato: whatsapp:+14155238886)",
+      "value": "whatsapp:+14155238886",
+      "required": true
+    },
+    "BUSINESS_NAME": {
+      "description": "Nombre de tu negocio",
+      "value": "Coffee Express",
+      "required": false
+    },
+    "BUSINESS_PHONE": {
+      "description": "Teléfono de contacto del negocio",
+      "value": "+51987654321",
+      "required": false
+    },
+    "BUSINESS_EMAIL": {
+      "description": "Email del negocio",
+      "value": "ventas@coffeeexpress.com",
+      "required": false
+    },
+    "NODE_ENV": {
+      "description": "Entorno de ejecución",
+      "value": "production",
+      "required": false
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "free"
+    }
+  },
+  "addons": [
+    "heroku-postgresql:hobby-dev"
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ]
+}
