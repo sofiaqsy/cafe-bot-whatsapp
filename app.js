@@ -28,6 +28,7 @@ const orderHandler = require('./order-handler');
 const homeRoutes = require('./home-routes');
 const webhookRoute = require('./webhook-route');
 const adminRoute = require('./admin-route');
+const webhookEstado = require('./webhook-estado');
 
 // Setup middleware
 app.use(express.urlencoded({ extended: false }));
@@ -38,6 +39,7 @@ app.use(express.static('public'));
 app.use('/', homeRoutes);
 app.use('/webhook', webhookRoute);
 app.use('/admin', adminRoute);
+app.use('/', webhookEstado); // Webhook de estado en la raíz
 
 // Error handling middleware
 app.use((error, req, res, next) => {
