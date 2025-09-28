@@ -445,8 +445,8 @@ class GoogleSheetsIntegration {
                 datosPedido.id || `PED-${Date.now().toString().slice(-6)}`,
                 fechaStr,
                 horaStr,
-                datosPedido.cafeteria || datosPedido.nombreNegocio || 'Sin nombre',
-                datosPedido.contacto?.split(' - ')[0] || 'Sin contacto',
+                datosPedido.cafeteria || datosPedido.nombreNegocio || datosPedido.empresa || 'Sin nombre',
+                datosPedido.contacto?.split(' - ')[0] || datosPedido.contacto || 'Sin contacto',
                 datosPedido.telefono || 'Sin teléfono',
                 datosPedido.direccion || 'Sin dirección',
                 datosPedido.producto?.nombre || 'Producto',
@@ -456,12 +456,12 @@ class GoogleSheetsIntegration {
                 datosPedido.descuento || 0,
                 datosPedido.total || 0,
                 datosPedido.metodoPago || 'Transferencia',
-                datosPedido.estado || 'Pendiente',
+                datosPedido.estado || datosPedido.status || 'Pendiente verificación',
                 datosPedido.urlComprobante || '',
                 datosPedido.observaciones || '',
                 datosPedido.esReorden ? 'Reorden' : 'Nuevo',
                 idCliente || '',
-                datosPedido.telefono || ''
+                datosPedido.userId || datosPedido.telefono || ''
             ]];
 
             // Agregar a la hoja
@@ -485,6 +485,99 @@ class GoogleSheetsIntegration {
     }
 
     /**
+     * Obtener todos los pedidos
+     */
+    async getAllOrders() {
+        if (!this.initialized) return [];
+        
+        try {
+            console.log('📥 Obteniendo pedidos desde Google Sheets...');
+            
+            const response = await this.sheets.spreadsheets.values.get({
+                spreadsheetId: this.spreadsheetId,
+                range: 'PedidosWhatsApp!A2:T' // Asumiendo que la fila 1 tiene headers
+            });
+            
+            if (!response.data.values || response.data.values.length === 0) {
+                console.log('No hay pedidos en Google Sheets');
+                return [];
+            }
+            
+            // Mapear los datos a objetos
+            const pedidos = response.data.values.map((row, index) => {
+                return {
+                    id: row[0] || `PED-${index}`,
+                    fecha: row[1],
+                    hora: row[2],
+                    empresa: row[3],
+                    contacto: row[4],
+                    telefono: row[5],
+                    telefonoContacto: row[5],
+                    userId: row[19] || row[5], // Columna T (Usuario WhatsApp)
+                    whatsappSesion: row[19] || row[5], // Columna T (Usuario WhatsApp)
+                    direccion: row[6],
+                    producto: row[7],
+                    cantidad: parseFloat(row[8]) || 0,
+                    precioUnit: parseFloat(row[9]) || 0,
+                    subtotal: parseFloat(row[10]) || 0,
+                    descuento: parseFloat(row[11]) || 0,
+                    total: parseFloat(row[12]) || 0,
+                    metodoPago: row[13],
+                    estado: row[14],
+                    comprobante: row[15],
+                    observaciones: row[16]
+                };
+            });
+            
+            console.log(`📦 ${pedidos.length} pedidos obtenidos de Sheets`);
+            return pedidos;
+        } catch (error) {
+            console.error('❌ Error obteniendo pedidos:', error.message);
+            // Si la hoja no existe, intentar con la hoja alternativa
+            try {
+                const response = await this.sheets.spreadsheets.values.get({
+                    spreadsheetId: this.spreadsheetId,
+                    range: 'PedidosWhatsApp!A2:T'
+                });
+                
+                if (!response.data.values || response.data.values.length === 0) {
+                    return [];
+                }
+                
+                const pedidos = response.data.values.map((row, index) => {
+                    return {
+                        id: row[0] || `PED-${index}`,
+                        fecha: row[1],
+                        hora: row[2],
+                        empresa: row[3],
+                        contacto: row[4],
+                        telefono: row[5],
+                        telefonoContacto: row[5],
+                        whatsappSesion: row[19] || row[5], // Columna T o telefono
+                        direccion: row[6],
+                        producto: row[7],
+                        cantidad: parseFloat(row[8]) || 0,
+                        precioUnit: parseFloat(row[9]) || 0,
+                        subtotal: parseFloat(row[10]) || 0,
+                        descuento: parseFloat(row[11]) || 0,
+                        total: parseFloat(row[12]) || 0,
+                        metodoPago: row[13],
+                        estado: row[14],
+                        comprobante: row[15],
+                        observaciones: row[16]
+                    };
+                });
+                
+                console.log(`📦 ${pedidos.length} pedidos obtenidos de PedidosWhatsApp`);
+                return pedidos;
+            } catch (error2) {
+                console.error('❌ Error obteniendo pedidos de hoja alternativa:', error2.message);
+                return [];
+            }
+        }
+    }
+
+    /**
      * Obtener estadísticas del cliente
      */
     async obtenerEstadisticasCliente(telefonoWhatsApp) {
@@ -503,6 +596,57 @@ class GoogleSheetsIntegration {
             existe: false,
             esNuevo: true
         };
+    }
+    
+    /**
+     * Guardar pedido (alias de agregarPedido para compatibilidad)
+     */
+    async saveOrder(orderData) {
+        return await this.agregarPedido(orderData);
+    }
+    
+    /**
+     * Actualizar estado del pedido
+     */
+    async updateOrderStatus(orderId, nuevoEstado) {
+        if (!this.initialized) return false;
+        
+        try {
+            // Obtener todos los pedidos para encontrar la fila correcta
+            const response = await this.sheets.spreadsheets.values.get({
+                spreadsheetId: this.spreadsheetId,
+                range: 'PedidosWhatsApp!A:O'
+            });
+            
+            if (!response.data.values || response.data.values.length <= 1) {
+                console.log('❌ No se encontraron pedidos');
+                return false;
+            }
+            
+            // Buscar el pedido por ID
+            const filaIndex = response.data.values.findIndex(row => row[0] === orderId);
+            
+            if (filaIndex > 0) {
+                // Actualizar solo la columna de estado (columna O, índice 14)
+                await this.sheets.spreadsheets.values.update({
+                    spreadsheetId: this.spreadsheetId,
+                    range: `PedidosWhatsApp!O${filaIndex + 1}`,
+                    valueInputOption: 'RAW',
+                    requestBody: {
+                        values: [[nuevoEstado]]
+                    }
+                });
+                
+                console.log(`✅ Estado del pedido ${orderId} actualizado a: ${nuevoEstado}`);
+                return true;
+            } else {
+                console.log(`❌ No se encontró el pedido ${orderId}`);
+                return false;
+            }
+        } catch (error) {
+            console.error('Error actualizando estado del pedido:', error.message);
+            return false;
+        }
     }
 }
 

@@ -27,6 +27,82 @@ class StateManager {
         
         // Cleanup interval (every 10 minutes)
         this.startCleanupInterval();
+        
+        console.log('📦 StateManager inicializado');
+        console.log(`   Pedidos en memoria: ${this.confirmedOrders.size}`);
+    }
+    
+    /**
+     * Load orders from Google Sheets
+     */
+    async loadOrdersFromSheets(sheetsService) {
+        if (!sheetsService || !sheetsService.initialized) {
+            console.log('⚠️ Google Sheets no disponible para cargar pedidos');
+            return;
+        }
+        
+        try {
+            console.log('📥 Cargando pedidos desde Google Sheets...');
+            
+            // Obtener todos los pedidos de Sheets
+            const orders = await sheetsService.getAllOrders();
+            
+            if (orders && orders.length > 0) {
+                orders.forEach(order => {
+                    if (order.id) {
+                        // Reconstruir el pedido desde Sheets
+                        const orderData = {
+                            id: order.id,
+                            userId: order.whatsappSesion || order.telefono || order.userId,
+                            telefono: order.telefonoContacto || order.telefono,
+                            fecha: order.fecha,
+                            timestamp: new Date(order.fecha),
+                            producto: {
+                                nombre: order.producto,
+                                precio: parseFloat(order.precioUnit) || 0
+                            },
+                            cantidad: parseFloat(order.cantidad) || 0,
+                            total: parseFloat(order.total) || 0,
+                            empresa: order.empresa,
+                            contacto: order.contacto,
+                            direccion: order.direccion,
+                            status: order.estado,
+                            estado: order.estado,
+                            comprobanteRecibido: order.comprobante === 'Sí' || order.comprobante === true,
+                            urlComprobante: order.comprobante
+                        };
+                        
+                        this.confirmedOrders.set(order.id, orderData);
+                    }
+                });
+                
+                console.log(`✅ ${orders.length} pedidos cargados desde Sheets`);
+                console.log(`   Pedidos activos: ${this.getActiveOrdersCount()}`);
+                console.log(`   Pedidos pendientes: ${this.getPendingOrdersCount()}`);
+            } else {
+                console.log('📭 No hay pedidos en Google Sheets');
+            }
+        } catch (error) {
+            console.error('❌ Error cargando pedidos desde Sheets:', error);
+        }
+    }
+    
+    /**
+     * Get active orders count
+     */
+    getActiveOrdersCount() {
+        return Array.from(this.confirmedOrders.values()).filter(
+            o => ACTIVE_STATES.includes(o.status || o.estado)
+        ).length;
+    }
+    
+    /**
+     * Get pending orders count
+     */
+    getPendingOrdersCount() {
+        return Array.from(this.confirmedOrders.values()).filter(
+            o => PENDING_STATES.includes(o.status || o.estado)
+        ).length;
     }
     
     /**

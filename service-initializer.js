@@ -158,7 +158,22 @@ class ServiceInitializer {
     async initializeOrderHandler() {
         try {
             const orderHandler = require('./order-handler');
+            const stateManager = require('./state-manager');
+            
             orderHandler.initialize(this.services);
+            
+            // Cargar pedidos existentes desde Google Sheets
+            if (this.services.sheets) {
+                console.log('📥 Cargando pedidos históricos desde Google Sheets...');
+                await stateManager.loadOrdersFromSheets(this.services.sheets);
+                
+                // Mostrar estadísticas de pedidos cargados
+                const stats = stateManager.getStats();
+                console.log(`   ✅ ${stats.totalOrders} pedidos cargados`);
+                console.log(`   📦 ${stats.pendingOrders} pendientes`);
+                console.log(`   🚚 ${stats.activeOrders} activos`);
+            }
+            
             console.log('✅ Manejador de pedidos configurado');
             return true;
         } catch (error) {
