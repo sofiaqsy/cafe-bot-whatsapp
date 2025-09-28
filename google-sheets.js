@@ -754,7 +754,7 @@ class GoogleSheetsIntegration {
             
             const response = await this.sheets.spreadsheets.values.get({
                 spreadsheetId: this.spreadsheetId,
-                range: 'CatalogoWhatsApp!A2:H' // Desde la fila 2 para saltar encabezados
+                range: 'CatalogoWhatsApp!A2:J' // Hasta columna J para incluir Ultima_Modificacion
             });
             
             console.log(`   Respuesta de la API: ${response.data ? 'Datos recibidos' : 'Sin datos'}`);
@@ -765,31 +765,37 @@ class GoogleSheetsIntegration {
                 return null;
             }
             
-            // Mapear los productos con numeración para selección fácil
+            // Mapeo correcto según tu hoja:
+            // A(0): ID_Producto, B(1): Nombre, C(2): Precio_Kg, D(3): Origen,
+            // E(4): Puntaje, F(5): Agricultor, G(6): Stock_Kg, H(7): Descripcion,
+            // I(8): Estado, J(9): Ultima_Modificacion
             const productos = {};
             let productosActivos = 0;
             
             response.data.values.forEach((row, index) => {
-                console.log(`   Fila ${index}: ${row[0]}, ${row[1]}, Estado: ${row[5]}`);
+                console.log(`   Fila ${index}: ID=${row[0]}, Nombre=${row[1]}, Estado=${row[8]}`);
                 
-                // Solo incluir productos con estado ACTIVO
-                if (row[0] && row[5] === 'ACTIVO') {
+                // Verificar que el producto tenga ID y estado ACTIVO (columna I, índice 8)
+                if (row[0] && row[8] === 'ACTIVO') {
                     productosActivos++;
-                    const numero = productosActivos.toString(); // Numeración basada en productos activos
+                    const numero = productosActivos.toString();
                     productos[numero] = {
-                        id: row[0], // ID_Producto (CAT-001, etc)
+                        id: row[0], // ID_Producto
                         numero: numero,
                         nombre: row[1] || 'Producto sin nombre', // Nombre
                         precio: parseFloat(row[2]) || 0, // Precio_Kg
                         origen: row[3] || 'Origen no especificado', // Origen
-                        descripcion: row[4] || 'Sin descripción', // Descripcion (que en tu hoja es Agricultor)
-                        disponible: row[5] === 'ACTIVO', // Estado
+                        puntaje: row[4] || '', // Puntaje
+                        agricultor: row[5] || '', // Agricultor
                         stock: parseFloat(row[6]) || 0, // Stock_Kg
-                        fechaModificacion: row[7] || '' // Ultima_Modificacion
+                        descripcion: row[7] || 'Sin descripción', // Descripcion
+                        disponible: true,
+                        estado: row[8] || '', // Estado
+                        fechaModificacion: row[9] || '' // Ultima_Modificacion
                     };
-                    console.log(`     ✅ Producto añadido: ${numero}. ${productos[numero].nombre}`);
+                    console.log(`     ✅ Producto añadido: ${numero}. ${productos[numero].nombre} - S/${productos[numero].precio}/kg`);
                 } else {
-                    console.log(`     ❌ Producto omitido (no activo o sin ID)`);
+                    console.log(`     ❌ Producto omitido (Estado: ${row[8] || 'vacío'})`);
                 }
             });
             
@@ -810,7 +816,7 @@ class GoogleSheetsIntegration {
             if (error.message.includes('Unable to parse range')) {
                 console.log('📝 Intentando crear hoja CatalogoWhatsApp...');
                 await this.crearHojaCatalogo();
-                return null; // No reintentar, dejar que use el catálogo por defecto
+                return null;
             }
             
             return null;
