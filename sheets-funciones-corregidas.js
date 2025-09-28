@@ -29,7 +29,8 @@ async function agregarPedidoCorregido(googleSheets, datosPedido) {
         const whatsappSesion = datosPedido.whatsappSesion || datosPedido.telefono || '';
         const whatsappNormalizado = whatsappSesion
             .replace('whatsapp:', '')
-            .replace(/[^0-9+]/g, '');
+            .replace('+51', '') // IMPORTANTE: Quitar +51
+            .replace(/[^0-9]/g, ''); // Solo números
         
         console.log('📱 WhatsApp de sesión (from):', whatsappNormalizado);
         console.log('📞 Teléfono de contacto ingresado:', telefonoContacto);

@@ -10,7 +10,8 @@ async function buscarClienteEnSheets(googleSheets, telefono) {
         // Normalizar teléfono
         const telefonoNormalizado = telefono
             .replace('whatsapp:', '')
-            .replace(/[^0-9+]/g, '');
+            .replace('+51', '') // Quitar prefijo de Perú
+            .replace(/[^0-9]/g, ''); // Solo números
         
         console.log(`🔍 Buscando cliente con WhatsApp: ${telefonoNormalizado}`);
         
@@ -29,7 +30,9 @@ async function buscarClienteEnSheets(googleSheets, telefono) {
         const clientes = response.data.values;
         for (let i = 1; i < clientes.length; i++) {
             const row = clientes[i];
-            const whatsappCliente = row[1] ? row[1].replace(/[^0-9+]/g, '') : '';
+            // Normalizar el WhatsApp guardado también
+            const whatsappCliente = row[1] ? 
+                row[1].replace('+51', '').replace(/[^0-9]/g, '') : '';
             
             if (whatsappCliente === telefonoNormalizado) {
                 console.log(`✅ Cliente encontrado: ${row[2]} (${row[0]})`);
@@ -83,7 +86,9 @@ async function obtenerPedidosActivosDesdeSheets(googleSheets, telefono) {
         
         for (let i = 1; i < pedidos.length; i++) {
             const row = pedidos[i];
-            const whatsappPedido = row[19] ? row[19].replace(/[^0-9+]/g, '') : ''; // Columna T
+            // Normalizar el WhatsApp de la columna T también
+            const whatsappPedido = row[19] ? 
+                row[19].replace('+51', '').replace(/[^0-9]/g, '') : ''; // Quitar +51 y dejar solo números
             const estado = row[14] || ''; // Columna O
             
             // Solo pedidos del usuario que NO estén completados/cancelados
