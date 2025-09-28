@@ -740,6 +740,10 @@ class GoogleSheetsIntegration {
      * Obtener catálogo de productos desde Google Sheets
      */
     async obtenerCatalogo() {
+        console.log('📦 GoogleSheets.obtenerCatalogo() llamado');
+        console.log(`   Inicializado: ${this.initialized}`);
+        console.log(`   SpreadsheetId: ${this.spreadsheetId}`);
+        
         if (!this.initialized) {
             console.log('⚠️ Google Sheets no inicializado');
             return null;
@@ -753,6 +757,9 @@ class GoogleSheetsIntegration {
                 range: 'CatalogoWhatsApp!A2:H' // Desde la fila 2 para saltar encabezados
             });
             
+            console.log(`   Respuesta de la API: ${response.data ? 'Datos recibidos' : 'Sin datos'}`);
+            console.log(`   Filas encontradas: ${response.data.values?.length || 0}`);
+            
             if (!response.data.values || response.data.values.length === 0) {
                 console.log('⚠️ No hay productos en el catálogo');
                 return null;
@@ -760,10 +767,15 @@ class GoogleSheetsIntegration {
             
             // Mapear los productos con numeración para selección fácil
             const productos = {};
+            let productosActivos = 0;
+            
             response.data.values.forEach((row, index) => {
+                console.log(`   Fila ${index}: ${row[0]}, ${row[1]}, Estado: ${row[5]}`);
+                
                 // Solo incluir productos con estado ACTIVO
                 if (row[0] && row[5] === 'ACTIVO') {
-                    const numero = (index + 1).toString(); // Numeración simple del 1 en adelante
+                    productosActivos++;
+                    const numero = productosActivos.toString(); // Numeración basada en productos activos
                     productos[numero] = {
                         id: row[0], // ID_Producto (CAT-001, etc)
                         numero: numero,
@@ -775,6 +787,9 @@ class GoogleSheetsIntegration {
                         stock: parseFloat(row[6]) || 0, // Stock_Kg
                         fechaModificacion: row[7] || '' // Ultima_Modificacion
                     };
+                    console.log(`     ✅ Producto añadido: ${numero}. ${productos[numero].nombre}`);
+                } else {
+                    console.log(`     ❌ Producto omitido (no activo o sin ID)`);
                 }
             });
             
@@ -789,6 +804,7 @@ class GoogleSheetsIntegration {
             
         } catch (error) {
             console.error('❌ Error obteniendo catálogo:', error.message);
+            console.error('   Stack:', error.stack);
             
             // Si la hoja no existe, intentar crearla
             if (error.message.includes('Unable to parse range')) {

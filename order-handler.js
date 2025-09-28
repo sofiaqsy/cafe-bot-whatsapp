@@ -22,6 +22,10 @@ class OrderHandler {
         this.sheetsService = services.sheets;
         this.driveService = services.drive;
         this.notificationService = services.notifications;
+        console.log('📦 OrderHandler inicializado con servicios:');
+        console.log(`   Sheets: ${this.sheetsService ? 'Sí' : 'No'}`);
+        console.log(`   Drive: ${this.driveService ? 'Sí' : 'No'}`);
+        console.log(`   Notifications: ${this.notificationService ? 'Sí' : 'No'}`);
     }
     
     /**
@@ -652,6 +656,8 @@ Envía el número de tu elección`;
      * Mostrar catálogo
      */
     mostrarCatalogo(userState) {
+        console.log('📦 Mostrando catálogo...');
+        
         let headerCatalogo = '';
         if (userState.data && userState.data.producto) {
             headerCatalogo = `🔄 *Tienes un pedido en proceso*
@@ -663,8 +669,22 @@ _Selecciona un nuevo producto para reemplazarlo_
 `;
         }
         
+        // Verificar si productCatalog tiene productos cargados
+        const productos = productCatalog.getAllProducts();
+        console.log(`   Productos en catálogo: ${productos.length}`);
+        
+        if (productos.length > 0) {
+            console.log('   Usando catálogo dinámico de Google Sheets');
+            productos.forEach(p => {
+                console.log(`     - ${p.numero}: ${p.nombre} (${p.precio}/kg)`);
+            });
+        } else {
+            console.log('   ⚠️ No hay productos en el catálogo dinámico');
+        }
+        
         // Usar el catálogo dinámico de productCatalog
         const catalogoFormateado = productCatalog.formatProductList();
+        console.log('   Catálogo formateado generado');
         
         return `${headerCatalogo}${catalogoFormateado}`;
     }
