@@ -677,42 +677,52 @@ _Escribe *menu* para volver_`;
                 if (mediaUrl) {
                     // Actualizar el pedido existente con el comprobante
                     const pedidoId = fullState.data.pedidoId;
-                    const actualizado = stateManager.updateOrderWithReceipt(pedidoId, mediaUrl);
+                    let driveUrl = null;
+                    
+                    // Primero subir a Drive si está disponible
+                    if (this.driveService) {
+                        try {
+                            const fileName = `comprobante_${pedidoId}_${Date.now()}.jpg`;
+                            const pedido = stateManager.getConfirmedOrder(pedidoId);
+                            const metadata = {
+                                pedidoId: pedidoId,
+                                empresa: pedido.empresa,
+                                contacto: pedido.contacto,
+                                total: pedido.total,
+                                fecha: new Date().toISOString()
+                            };
+                            const result = await this.driveService.subirImagenDesdeURL(mediaUrl, fileName, metadata);
+                            console.log('Comprobante guardado en Drive:', result);
+                            
+                            if (result.success && result.webViewLink) {
+                                driveUrl = result.webViewLink;
+                                console.log('✅ URL de Drive obtenida:', driveUrl);
+                            }
+                        } catch (error) {
+                            console.error('Error guardando en Drive:', error);
+                        }
+                    }
+                    
+                    // Actualizar el pedido con la URL de Drive (o Twilio si falla Drive)
+                    const urlFinal = driveUrl || mediaUrl;
+                    const actualizado = stateManager.updateOrderWithReceipt(pedidoId, urlFinal);
                     
                     if (actualizado) {
-                        // Guardar imagen en Drive si está disponible
-                        if (this.driveService) {
+                        // Actualizar en Sheets con la URL correcta
+                        if (this.sheetsService && this.sheetsService.actualizarComprobantePedido) {
                             try {
-                                const fileName = `comprobante_${pedidoId}_${Date.now()}.jpg`;
-                                const pedido = stateManager.getConfirmedOrder(pedidoId);
-                                const metadata = {
-                                    pedidoId: pedidoId,
-                                    empresa: pedido.empresa,
-                                    contacto: pedido.contacto,
-                                    total: pedido.total,
-                                    fecha: new Date().toISOString()
-                                };
-                                await this.driveService.subirImagenDesdeURL(mediaUrl, fileName, metadata);
-                                console.log('Comprobante guardado en Drive');
+                                await this.sheetsService.actualizarComprobantePedido(pedidoId, urlFinal);
+                                console.log('✅ Sheets actualizado con URL de Drive:', urlFinal);
                             } catch (error) {
-                                console.error('Error guardando en Drive:', error);
+                                console.error('Error actualizando comprobante en Sheets:', error);
                             }
                         }
                         
-                        // Actualizar en Sheets
-                        if (this.sheetsService) {
-                            try {
-                                await this.sheetsService.updateOrderStatus(pedidoId, ORDER_STATES.PENDING_VERIFICATION);
-                            } catch (error) {
-                                console.error('Error actualizando en Sheets:', error);
-                            }
-                        }
-                        
-                        // Notificar admin si está disponible
+                        // Notificar admin con la URL correcta
                         if (this.notificationService && this.notificationService.notificarComprobanteParaValidacion) {
                             try {
                                 const pedido = stateManager.getConfirmedOrder(pedidoId);
-                                await this.notificationService.notificarComprobanteParaValidacion(pedido, mediaUrl, from);
+                                await this.notificationService.notificarComprobanteParaValidacion(pedido, urlFinal, from);
                             } catch (error) {
                                 console.error('Error notificando admin:', error);
                             }
@@ -1029,19 +1039,8 @@ _O escribe *menu* para volver_`;
         console.log(`     telefono: ${pedidoCompleto.telefono}`);
         console.log(`     empresa: ${pedidoCompleto.empresa}`);
         
-        // Guardar pedido
-        stateManager.addConfirmedOrder(pedidoId, pedidoCompleto);
-        
-        // Guardar en Sheets si está disponible
-        if (this.sheetsService) {
-            try {
-                await this.sheetsService.saveOrder(pedidoCompleto);
-            } catch (error) {
-                console.error('Error guardando en Sheets:', error);
-            }
-        }
-        
-        // Guardar imagen en Drive si está disponible
+        // Guardar imagen en Drive si está disponible y actualizar URL
+        let driveUrl = null;
         if (this.driveService && mediaUrl) {
             try {
                 const fileName = `comprobante_${pedidoId}_${Date.now()}.jpg`;
@@ -1054,8 +1053,28 @@ _O escribe *menu* para volver_`;
                 };
                 const result = await this.driveService.subirImagenDesdeURL(mediaUrl, fileName, metadata);
                 console.log('Comprobante guardado:', result);
+                
+                // Si se subió exitosamente a Drive, usar esa URL
+                if (result.success && result.webViewLink) {
+                    driveUrl = result.webViewLink;
+                    pedidoCompleto.urlComprobante = driveUrl; // Actualizar con URL de Drive
+                    console.log('✅ URL de Drive actualizada en el pedido:', driveUrl);
+                }
             } catch (error) {
                 console.error('Error guardando en Drive:', error);
+            }
+        }
+        
+        // Guardar pedido en memoria con la URL actualizada
+        stateManager.addConfirmedOrder(pedidoId, pedidoCompleto);
+        
+        // Guardar en Sheets con la URL de Drive si está disponible
+        if (this.sheetsService) {
+            try {
+                await this.sheetsService.saveOrder(pedidoCompleto);
+                console.log('✅ Pedido guardado en Sheets con URL de Drive:', driveUrl || 'Sin comprobante');
+            } catch (error) {
+                console.error('Error guardando en Sheets:', error);
             }
         }
         
@@ -1064,8 +1083,10 @@ _O escribe *menu* para volver_`;
             try {
                 await this.notificationService.notificarNuevoPedido(pedidoCompleto);
                 // Si hay comprobante, notificar también para validación
-                if (mediaUrl && this.notificationService.notificarComprobanteParaValidacion) {
-                    await this.notificationService.notificarComprobanteParaValidacion(pedidoCompleto, mediaUrl, from);
+                // Usar URL de Drive si está disponible, sino usar URL de Twilio
+                const urlParaNotificacion = driveUrl || mediaUrl;
+                if (urlParaNotificacion && this.notificationService.notificarComprobanteParaValidacion) {
+                    await this.notificationService.notificarComprobanteParaValidacion(pedidoCompleto, urlParaNotificacion, from);
                 }
             } catch (error) {
                 console.error('Error notificando admin:', error);

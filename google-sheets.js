@@ -934,6 +934,63 @@ class GoogleSheetsIntegration {
     }
 
     /**
+     * Actualizar URL del comprobante del pedido
+     */
+    async actualizarComprobantePedido(orderId, urlComprobante) {
+        if (!this.initialized) return false;
+        
+        try {
+            console.log(`💳 Actualizando URL del comprobante para pedido ${orderId}`);
+            console.log(`   Nueva URL: ${urlComprobante}`);
+            
+            // Obtener todos los pedidos para encontrar la fila correcta
+            const response = await this.sheets.spreadsheets.values.get({
+                spreadsheetId: this.spreadsheetId,
+                range: 'PedidosWhatsApp!A:P'
+            });
+            
+            if (!response.data.values || response.data.values.length <= 1) {
+                console.log('❌ No se encontraron pedidos');
+                return false;
+            }
+            
+            // Buscar el pedido por ID (columna A)
+            const filaIndex = response.data.values.findIndex(row => row[0] === orderId);
+            
+            if (filaIndex > 0) {
+                // Actualizar la columna de comprobante (columna P, índice 15)
+                await this.sheets.spreadsheets.values.update({
+                    spreadsheetId: this.spreadsheetId,
+                    range: `PedidosWhatsApp!P${filaIndex + 1}`,
+                    valueInputOption: 'RAW',
+                    requestBody: {
+                        values: [[urlComprobante]]
+                    }
+                });
+                
+                // También actualizar el estado a "Pendiente verificación" si no lo está ya
+                await this.sheets.spreadsheets.values.update({
+                    spreadsheetId: this.spreadsheetId,
+                    range: `PedidosWhatsApp!O${filaIndex + 1}`,
+                    valueInputOption: 'RAW',
+                    requestBody: {
+                        values: [['Pendiente verificación']]
+                    }
+                });
+                
+                console.log(`✅ Comprobante del pedido ${orderId} actualizado con URL de Drive`);
+                return true;
+            } else {
+                console.log(`❌ No se encontró el pedido ${orderId}`);
+                return false;
+            }
+        } catch (error) {
+            console.error('Error actualizando comprobante del pedido:', error.message);
+            return false;
+        }
+    }
+
+    /**
      * Actualizar estado del pedido
      */
     async updateOrderStatus(orderId, nuevoEstado) {
