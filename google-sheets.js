@@ -93,6 +93,11 @@ class GoogleSheetsIntegration {
                 await this.crearHojaClientes();
             }
             
+            // Crear hoja de Catálogo si no existe
+            if (!nombresHojas.includes('CatalogoWhatsApp')) {
+                await this.crearHojaCatalogo();
+            }
+            
             return true;
         } catch (error) {
             console.error('Error creando hojas:', error.message);
@@ -161,6 +166,158 @@ class GoogleSheetsIntegration {
         }
     }
 
+    async crearHojaCatalogo() {
+        console.log('📝 Creando hoja CatalogoWhatsApp...');
+        
+        try {
+            // Crear nueva hoja
+            await this.sheets.spreadsheets.batchUpdate({
+                spreadsheetId: this.spreadsheetId,
+                requestBody: {
+                    requests: [{
+                        addSheet: {
+                            properties: {
+                                title: 'CatalogoWhatsApp',
+                                gridProperties: {
+                                    rowCount: 100,
+                                    columnCount: 10
+                                }
+                            }
+                        }
+                    }]
+                }
+            });
+
+            // Agregar encabezados
+            const headers = [
+                'Número',
+                'ID',
+                'Nombre Producto',
+                'Precio (S/)',
+                'Origen',
+                'Descripción',
+                'Disponible',
+                'Stock (kg)',
+                'Categoría',
+                'Imagen URL'
+            ];
+
+            await this.sheets.spreadsheets.values.update({
+                spreadsheetId: this.spreadsheetId,
+                range: 'CatalogoWhatsApp!A1:J1',
+                valueInputOption: 'RAW',
+                requestBody: {
+                    values: [headers]
+                }
+            });
+
+            // Agregar productos de ejemplo
+            const productosEjemplo = [
+                ['1', 'premium', 'Café Arábica Premium', '50', 'Chanchamayo, Junín', 'Notas de chocolate y frutos rojos', 'Sí', '100', 'Premium', ''],
+                ['2', 'estandar', 'Café Arábica Estándar', '40', 'Satipo, Junín', 'Notas de caramelo y nueces', 'Sí', '150', 'Estándar', ''],
+                ['3', 'organico', 'Café Orgánico Certificado', '60', 'Villa Rica, Pasco', 'Notas florales y cítricas', 'Sí', '80', 'Orgánico', ''],
+                ['4', 'mezcla', 'Mezcla Especial Cafeterías', '35', 'Blend peruano', 'Equilibrado, ideal para espresso', 'Sí', '200', 'Mezcla', ''],
+                ['5', 'descafeinado', 'Café Descafeinado Suave', '45', 'Cusco', 'Suave y aromático, sin cafeína', 'Sí', '50', 'Descafeinado', '']
+            ];
+
+            await this.sheets.spreadsheets.values.update({
+                spreadsheetId: this.spreadsheetId,
+                range: 'CatalogoWhatsApp!A2:J6',
+                valueInputOption: 'RAW',
+                requestBody: {
+                    values: productosEjemplo
+                }
+            });
+
+            console.log('✅ Hoja CatalogoWhatsApp creada con productos de ejemplo');
+        } catch (error) {
+            console.error('Error creando hoja de catálogo:', error.message);
+        }
+    }
+
+    async crearHojaCatalogo() {
+        console.log('📝 Verificando hoja CatalogoWhatsApp...');
+        
+        try {
+            // Verificar si la hoja ya existe
+            const response = await this.sheets.spreadsheets.get({
+                spreadsheetId: this.spreadsheetId
+            });
+            
+            const sheets = response.data.sheets || [];
+            const catalogoExiste = sheets.some(sheet => sheet.properties.title === 'CatalogoWhatsApp');
+            
+            if (catalogoExiste) {
+                console.log('✅ Hoja CatalogoWhatsApp ya existe');
+                return true;
+            }
+            
+            // Si no existe, crearla
+            console.log('📝 Creando hoja CatalogoWhatsApp...');
+            
+            await this.sheets.spreadsheets.batchUpdate({
+                spreadsheetId: this.spreadsheetId,
+                requestBody: {
+                    requests: [{
+                        addSheet: {
+                            properties: {
+                                title: 'CatalogoWhatsApp',
+                                gridProperties: {
+                                    rowCount: 100,
+                                    columnCount: 10
+                                }
+                            }
+                        }
+                    }]
+                }
+            });
+
+            // Agregar encabezados
+            const headers = [
+                'ID_Producto',
+                'Nombre',
+                'Precio_Kg',
+                'Origen',
+                'Descripcion',
+                'Estado',
+                'Stock_Kg',
+                'Ultima_Modificacion'
+            ];
+
+            await this.sheets.spreadsheets.values.update({
+                spreadsheetId: this.spreadsheetId,
+                range: 'CatalogoWhatsApp!A1:H1',
+                valueInputOption: 'RAW',
+                requestBody: {
+                    values: [headers]
+                }
+            });
+
+            // Agregar productos de ejemplo
+            const productosEjemplo = [
+                ['CAT-001', 'Café Orgánico P.36,6', '36.6', 'Cusco', '88 Juan Pérez', 'ACTIVO', '120', new Date().toISOString()],
+                ['CAT-002', 'Café Premium', '50', 'Chanchamayo', 'Notas florales', 'ACTIVO', '100', new Date().toISOString()],
+                ['CAT-003', 'Café Estándar', '40', 'Satipo', 'Equilibrado', 'ACTIVO', '150', new Date().toISOString()]
+            ];
+
+            await this.sheets.spreadsheets.values.append({
+                spreadsheetId: this.spreadsheetId,
+                range: 'CatalogoWhatsApp!A2:H',
+                valueInputOption: 'RAW',
+                insertDataOption: 'INSERT_ROWS',
+                requestBody: {
+                    values: productosEjemplo
+                }
+            });
+
+            console.log('✅ Hoja CatalogoWhatsApp creada con productos de ejemplo');
+            return true;
+        } catch (error) {
+            console.error('Error con hoja CatalogoWhatsApp:', error.message);
+            return false;
+        }
+    }
+    
     async crearHojaClientes() {
         console.log('📝 Creando hoja Clientes...');
         
@@ -210,32 +367,6 @@ class GoogleSheetsIntegration {
                     values: [headers]
                 }
             });
-
-            // Aplicar formato a los encabezados
-            await this.sheets.spreadsheets.batchUpdate({
-                spreadsheetId: this.spreadsheetId,
-                requestBody: {
-                    requests: [{
-                        repeatCell: {
-                            range: {
-                                sheetId: this.obtenerSheetId('Clientes'),
-                                startRowIndex: 0,
-                                endRowIndex: 1
-                            },
-                            cell: {
-                                userEnteredFormat: {
-                                    backgroundColor: { red: 0.2, green: 0.4, blue: 0.8 },
-                                    textFormat: { 
-                                        foregroundColor: { red: 1, green: 1, blue: 1 },
-                                        bold: true 
-                                    }
-                                }
-                            },
-                            fields: 'userEnteredFormat(backgroundColor,textFormat)'
-                        }
-                    }]
-                }
-            }).catch(() => {}); // Ignorar error de formato
 
             console.log('✅ Hoja Clientes creada');
         } catch (error) {
@@ -605,6 +736,111 @@ class GoogleSheetsIntegration {
         return await this.agregarPedido(orderData);
     }
     
+    /**
+     * Obtener catálogo de productos desde Google Sheets
+     */
+    async obtenerCatalogo() {
+        if (!this.initialized) {
+            console.log('⚠️ Google Sheets no inicializado');
+            return null;
+        }
+        
+        try {
+            console.log('📦 Obteniendo catálogo desde CatalogoWhatsApp...');
+            
+            const response = await this.sheets.spreadsheets.values.get({
+                spreadsheetId: this.spreadsheetId,
+                range: 'CatalogoWhatsApp!A2:H' // Desde la fila 2 para saltar encabezados
+            });
+            
+            if (!response.data.values || response.data.values.length === 0) {
+                console.log('⚠️ No hay productos en el catálogo');
+                return null;
+            }
+            
+            // Mapear los productos con numeración para selección fácil
+            const productos = {};
+            response.data.values.forEach((row, index) => {
+                // Solo incluir productos con estado ACTIVO
+                if (row[0] && row[5] === 'ACTIVO') {
+                    const numero = (index + 1).toString(); // Numeración simple del 1 en adelante
+                    productos[numero] = {
+                        id: row[0], // ID_Producto (CAT-001, etc)
+                        numero: numero,
+                        nombre: row[1] || 'Producto sin nombre', // Nombre
+                        precio: parseFloat(row[2]) || 0, // Precio_Kg
+                        origen: row[3] || 'Origen no especificado', // Origen
+                        descripcion: row[4] || 'Sin descripción', // Descripcion (que en tu hoja es Agricultor)
+                        disponible: row[5] === 'ACTIVO', // Estado
+                        stock: parseFloat(row[6]) || 0, // Stock_Kg
+                        fechaModificacion: row[7] || '' // Ultima_Modificacion
+                    };
+                }
+            });
+            
+            console.log(`✅ ${Object.keys(productos).length} productos activos cargados desde Sheets`);
+            
+            // Mostrar productos cargados para debug
+            Object.values(productos).forEach(p => {
+                console.log(`   ${p.numero}. ${p.nombre} - S/${p.precio}/kg - Stock: ${p.stock}kg`);
+            });
+            
+            return productos;
+            
+        } catch (error) {
+            console.error('❌ Error obteniendo catálogo:', error.message);
+            
+            // Si la hoja no existe, intentar crearla
+            if (error.message.includes('Unable to parse range')) {
+                console.log('📝 Intentando crear hoja CatalogoWhatsApp...');
+                await this.crearHojaCatalogo();
+                return null; // No reintentar, dejar que use el catálogo por defecto
+            }
+            
+            return null;
+        }
+    }
+
+    /**
+     * Actualizar stock de un producto
+     */
+    async actualizarStock(numeroProducto, nuevoStock) {
+        if (!this.initialized) return false;
+        
+        try {
+            // Obtener todos los productos para encontrar la fila
+            const response = await this.sheets.spreadsheets.values.get({
+                spreadsheetId: this.spreadsheetId,
+                range: 'CatalogoWhatsApp!A:A'
+            });
+            
+            if (!response.data.values) return false;
+            
+            // Encontrar la fila del producto
+            const filaIndex = response.data.values.findIndex(row => row[0] === numeroProducto.toString());
+            
+            if (filaIndex > 0) {
+                // Actualizar el stock (columna H)
+                await this.sheets.spreadsheets.values.update({
+                    spreadsheetId: this.spreadsheetId,
+                    range: `CatalogoWhatsApp!H${filaIndex + 1}`,
+                    valueInputOption: 'RAW',
+                    requestBody: {
+                        values: [[nuevoStock.toString()]]
+                    }
+                });
+                
+                console.log(`✅ Stock actualizado para producto ${numeroProducto}: ${nuevoStock}kg`);
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            console.error('Error actualizando stock:', error.message);
+            return false;
+        }
+    }
+
     /**
      * Actualizar estado del pedido
      */
