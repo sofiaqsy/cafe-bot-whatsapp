@@ -22,7 +22,7 @@ class OrderHandler {
         this.sheetsService = services.sheets;
         this.driveService = services.drive;
         this.notificationService = services.notifications;
-        console.log('📦 OrderHandler inicializado con servicios:');
+        console.log('OrderHandler inicializado con servicios:');
         console.log(`   Sheets: ${this.sheetsService ? 'Sí' : 'No'}`);
         console.log(`   Drive: ${this.driveService ? 'Sí' : 'No'}`);
         console.log(`   Notifications: ${this.notificationService ? 'Sí' : 'No'}`);
@@ -48,7 +48,7 @@ class OrderHandler {
         // Add to history
         stateManager.addToHistory(from, body, 'user');
         
-        console.log(`📨 Estado: ${fullState.step}, Mensaje: ${body}`);
+        console.log(`Estado: ${fullState.step}, Mensaje: ${body}`);
         
         // Comando global: MENÚ
         if (mensaje.toLowerCase() === 'menu' || mensaje.toLowerCase() === 'menú') {
@@ -74,7 +74,7 @@ class OrderHandler {
         if (mensaje.toLowerCase() === 'cancelar') {
             let mensajeCancelacion = '';
             if (fullState.data && fullState.data.producto) {
-                mensajeCancelacion = `❌ Pedido de *${fullState.data.producto.nombre}* cancelado\n\n`;
+                mensajeCancelacion = `Pedido de *${fullState.data.producto.nombre}* cancelado\n\n`;
             }
             fullState = { step: 'menu_principal', data: {} };
             
@@ -260,7 +260,7 @@ _Pedido mínimo: 5kg_`;
                 } else if (mensaje.toLowerCase() === 'menu' || mensaje.toLowerCase() === 'menú') {
                     return this.handleMessage(from, 'menu');
                 } else {
-                    respuesta = `❌ Por favor, selecciona un producto válido (1-5)
+                    respuesta = `Por favor, selecciona un producto válido (1-5)
 
 O escribe *menu* para volver al menú`;
                 }
@@ -300,13 +300,13 @@ Envía *MENU* para volver`;
                         fullState.step = 'confirmar_pedido';
                     }
                 } else if (!isNaN(cantidad) && cantidad < config.business.deliveryMin) {
-                    respuesta = `❌ El pedido mínimo es de *5kg*
+                    respuesta = `El pedido mínimo es de *5kg*
 
 Has ingresado: ${cantidad}kg
 
 Por favor, ingresa una cantidad de 5kg o más:`;
                 } else {
-                    respuesta = `❌ Por favor, ingresa una cantidad válida en números.
+                    respuesta = `Por favor, ingresa una cantidad válida en números.
 
 _Ejemplo: 10_
 
@@ -464,12 +464,12 @@ _Incluye distrito y referencia_`;
                     direccion: fullState.data.direccion
                 });
                 
-                respuesta = `✅ Dirección guardada: *${mensaje}*
+                respuesta = `Dirección guardada: *${mensaje}*
 
 ━━━━━━━━━━━━━━━━━
 
 *MÉTODO DE PAGO*
-💳 Realiza la transferencia a:
+Realiza la transferencia a:
 
 *Cuenta BCP Soles:*
 *${config.business.banking.bcpCuenta}*
@@ -481,20 +481,20 @@ _Incluye distrito y referencia_`;
 
 ━━━━━━━━━━━━━━━━━
 
-💰 *Monto a transferir: ${this.formatearPrecio(fullState.data.total)}*
+*Monto a transferir: ${this.formatearPrecio(fullState.data.total)}*
 
-📸 *ENVÍO DE COMPROBANTE:*
+*ENVÍO DE COMPROBANTE:*
 ${this.driveService ? 
-`✅ *Envía la foto del comprobante por WhatsApp*
+`*Envía la foto del comprobante por WhatsApp*
 _La imagen se guardará automáticamente_` : 
-`*Opción 1 - Formulario Web 🌐:*
+`*Opción 1 - Formulario Web:*
 ${config.business.forms.comprobantes}
 _Sube tu imagen desde el teléfono_`}
 
 *Opción alternativa:*
 _Escribe *"listo"* o *"enviado"* para confirmar_
 
-💡 *Tu código de pedido es: ${pedidoTempId}*`;
+*Tu código de pedido es: ${pedidoTempId}*`;
                 
                 fullState.step = 'esperando_comprobante';
                 break;
@@ -511,7 +511,7 @@ ${fullState.data.direccion}
 ━━━━━━━━━━━━━━━━━━
 
 *MÉTODO DE PAGO*
-💳 Realiza la transferencia a:
+Realiza la transferencia a:
 
 *Cuenta BCP Soles:*
 *${config.business.banking.bcpCuenta}*
@@ -523,16 +523,16 @@ ${fullState.data.direccion}
 
 ━━━━━━━━━━━━━━━━━━
 
-💰 *Monto a transferir: ${this.formatearPrecio(fullState.data.total)}*
+*Monto a transferir: ${this.formatearPrecio(fullState.data.total)}*
 
-📸 *Una vez realizada la transferencia, envía la foto del voucher o comprobante*
+*Una vez realizada la transferencia, envía la foto del voucher o comprobante*
 
 _El pedido será confirmado tras verificar el pago_`;
                     
                     fullState.step = 'esperando_comprobante';
                 } else if (mensaje.toLowerCase() === 'no') {
                     // Pedir nuevos datos
-                    respuesta = `👤 *ACTUALIZAR DATOS*
+                    respuesta = `*ACTUALIZAR DATOS*
 
 Por favor, ingresa el *nombre de tu empresa o negocio*:`;
                     fullState.step = 'datos_empresa';
@@ -571,15 +571,15 @@ Por favor, ingresa el *nombre de tu empresa o negocio*:`;
                         direccion: pedidoAnterior.direccion
                     });
                     
-                    respuesta = `🔄 *REPETIR PEDIDO*
+                    respuesta = `*REPETIR PEDIDO*
 
-📦 *${pedidoAnterior.producto.nombre}*
-⚖️ Cantidad: *${pedidoAnterior.cantidad} kg*
-💰 Total: *${this.formatearPrecio(pedidoAnterior.total)}*
+*${pedidoAnterior.producto.nombre}*
+Cantidad: *${pedidoAnterior.cantidad} kg*
+Total: *${this.formatearPrecio(pedidoAnterior.total)}*
 
 *DATOS DE ENTREGA:*
-🏢 ${pedidoAnterior.empresa}
-📍 ${pedidoAnterior.direccion}
+${pedidoAnterior.empresa}
+${pedidoAnterior.direccion}
 
 ━━━━━━━━━━━━━━━━━
 
@@ -594,15 +594,15 @@ Por favor, ingresa el *nombre de tu empresa o negocio*:`;
 
 ━━━━━━━━━━━━━━━━━
 
-💰 *Monto a transferir: ${this.formatearPrecio(pedidoAnterior.total)}*
+*Monto a transferir: ${this.formatearPrecio(pedidoAnterior.total)}*
 
-📸 *Envía la foto del voucher o comprobante*
+*Envía la foto del voucher o comprobante*
 
 _El pedido será confirmado tras verificar el pago_`;
                     
                     fullState.step = 'esperando_comprobante';
                 } else {
-                    respuesta = `❌ Por favor, selecciona un número válido de la lista.
+                    respuesta = `Por favor, selecciona un número válido de la lista.
 
 _Escribe *menu* para volver_`;
                 }
@@ -625,9 +625,9 @@ _Escribe *menu* para volver_`;
                 // Si cancela
                 else if (mensaje.toLowerCase() === 'cancelar') {
                     fullState.data = {};
-                    respuesta = `❌ Proceso de pago cancelado.
+                    respuesta = `Proceso de pago cancelado.
 
-📱 *MENÚ PRINCIPAL*
+*MENÚ PRINCIPAL*
 
 *1* - Ver catálogo
 *2* - Consultar pedido
@@ -763,7 +763,7 @@ Envía el número de tu elección`;
      * Mostrar catálogo
      */
     async mostrarCatalogo(userState) {
-        console.log('📦 Mostrando catálogo...');
+        console.log('Mostrando catálogo...');
         
         // Recargar catálogo desde Google Sheets para tener datos actualizados
         console.log('   Recargando catálogo desde Sheets...');
@@ -771,7 +771,7 @@ Envía el número de tu elección`;
         
         let headerCatalogo = '';
         if (userState.data && userState.data.producto) {
-            headerCatalogo = `🔄 *Tienes un pedido en proceso*
+            headerCatalogo = `*Tienes un pedido en proceso*
 ${userState.data.producto.nombre} - ${userState.data.cantidad || '?'}kg
 
 _Selecciona un nuevo producto para reemplazarlo_
@@ -790,7 +790,7 @@ _Selecciona un nuevo producto para reemplazarlo_
                 console.log(`     - ${p.numero}: ${p.nombre} (${p.precio}/kg)`);
             });
         } else {
-            console.log('   ⚠️ No hay productos en el catálogo dinámico');
+            console.log('   No hay productos en el catálogo dinámico');
         }
         
         // Usar el catálogo dinámico de productCatalog
@@ -805,16 +805,16 @@ _Selecciona un nuevo producto para reemplazarlo_
      */
     mostrarHistorialPedidos(from) {
         const historial = stateManager.getUserOrders(from).slice(0, 5);
-        let respuesta = `🔄 *TUS PEDIDOS ANTERIORES*
+        let respuesta = `*TUS PEDIDOS ANTERIORES*
 ━━━━━━━━━━━━━━━━━
 
 `;
         historial.forEach((p, index) => {
             const fecha = new Date(p.timestamp || p.fecha).toLocaleDateString('es-PE');
             respuesta += `*${index + 1}.* ${p.producto?.nombre || 'Producto'}
-   📦 ${p.cantidad}kg - ${this.formatearPrecio(p.total)}
-   📅 ${fecha}
-   ${p.status === 'Confirmado' ? '✅' : '⏳'} ${p.status || p.estado}
+   ${p.cantidad}kg - ${this.formatearPrecio(p.total)}
+   ${fecha}
+   ${p.status === 'Confirmado' ? '✅' : ''} ${p.status || p.estado}
 
 `;
         });
@@ -830,7 +830,7 @@ _O escribe *menu* para volver_`;
      * Procesar comprobante
      */
     async procesarComprobante(from, userState, mediaUrl) {
-        console.log(`\n🎯 PROCESANDO COMPROBANTE`);
+        console.log(`\nPROCESANDO COMPROBANTE`);
         console.log(`   from (userId): ${from}`);
         console.log(`   mediaUrl: ${mediaUrl ? 'Sí' : 'No'}`);
         
@@ -886,7 +886,7 @@ _O escribe *menu* para volver_`;
                     fecha: new Date().toISOString()
                 };
                 const result = await this.driveService.subirImagenDesdeURL(mediaUrl, fileName, metadata);
-                console.log('📸 Comprobante guardado:', result);
+                console.log('Comprobante guardado:', result);
             } catch (error) {
                 console.error('Error guardando en Drive:', error);
             }
@@ -910,34 +910,34 @@ _O escribe *menu* para volver_`;
 
 ✅ Tu pedido ha sido registrado exitosamente
 
-📋 *Código de pedido:* ${pedidoId}
-📅 *Fecha:* ${new Date().toLocaleDateString('es-PE')}
+*Código de pedido:* ${pedidoId}
+*Fecha:* ${new Date().toLocaleDateString('es-PE')}
 
 *RESUMEN DEL PEDIDO:*
-📦 ${userState.data.producto.nombre}
-⚖️ ${userState.data.cantidad}kg
-💰 Total: ${this.formatearPrecio(userState.data.total)}
+${userState.data.producto.nombre}
+${userState.data.cantidad}kg
+Total: ${this.formatearPrecio(userState.data.total)}
 
 *DATOS DE ENTREGA:*
-🏢 ${userState.data.empresa}
-👤 ${userState.data.contacto}
-📱 ${userState.data.telefono}
-📍 ${userState.data.direccion}
+${userState.data.empresa}
+${userState.data.contacto}
+${userState.data.telefono}
+${userState.data.direccion}
 
 ━━━━━━━━━━━━━━━━━
 
-⏳ *ESTADO:* ${ORDER_STATES.PENDING_VERIFICATION}
+*ESTADO:* ${ORDER_STATES.PENDING_VERIFICATION}
 
-🔍 *Próximos pasos:*
-1️⃣ Verificaremos tu pago (máx. 30 min)
-2️⃣ Te confirmaremos por este medio
-3️⃣ Coordinaremos la entrega (24-48h)
+*Próximos pasos:*
+1. Verificaremos tu pago (máx. 30 min)
+2. Te confirmaremos por este medio
+3. Coordinaremos la entrega (24-48h)
 
-💡 *Guarda tu código: ${pedidoId}*
+*Guarda tu código: ${pedidoId}*
 
 Puedes consultar el estado con tu código en cualquier momento.
 
-¡Gracias por tu compra! ☕
+Gracias por tu compra!
 
 _Escribe *menu* para realizar otro pedido_`;
     }
@@ -975,7 +975,7 @@ Envía el número de tu elección`;
         const pedido = stateManager.getConfirmedOrder(pedidoId);
         
         if (!pedido) {
-            console.error(`❌ No se encontró el pedido ${pedidoId}`);
+            console.error(`No se encontró el pedido ${pedidoId}`);
             return false;
         }
         
@@ -983,7 +983,7 @@ Envía el número de tu elección`;
         const estadoAnterior = pedido.status || pedido.estado;
         stateManager.updateOrderStatus(pedidoId, nuevoEstado);
         
-        console.log(`🔄 Pedido ${pedidoId}: ${estadoAnterior} → ${nuevoEstado}`);
+        console.log(`Pedido ${pedidoId}: ${estadoAnterior} → ${nuevoEstado}`);
         
         // Si tenemos el número del cliente y el estado es "Pago confirmado", notificar
         if (from || pedido.userId || pedido.telefono) {
@@ -993,18 +993,18 @@ Envía el número de tu elección`;
                 const mensaje = `✅ *PAGO CONFIRMADO*\n\n` +
                     `Tu pedido *${pedidoId}* ha sido verificado.\n` +
                     `Estamos preparando tu pedido.\n\n` +
-                    `⏰ Entrega estimada: 24-48 horas\n\n` +
-                    `¡Gracias por tu compra! ☕`;
+                    `Entrega estimada: 24-48 horas\n\n` +
+                    `Gracias por tu compra!`;
                     
                 await messageService.sendMessage(clientPhone, mensaje);
             } else if (nuevoEstado === ORDER_STATES.IN_PREPARATION) {
-                const mensaje = `🎆 *PEDIDO EN PREPARACIÓN*\n\n` +
+                const mensaje = `*PEDIDO EN PREPARACIÓN*\n\n` +
                     `Tu pedido *${pedidoId}* está siendo preparado.\n\n` +
                     `Te avisaremos cuando esté listo.`;
                     
                 await messageService.sendMessage(clientPhone, mensaje);
             } else if (nuevoEstado === ORDER_STATES.ON_THE_WAY) {
-                const mensaje = `🚚 *PEDIDO EN CAMINO*\n\n` +
+                const mensaje = `*PEDIDO EN CAMINO*\n\n` +
                     `Tu pedido *${pedidoId}* está en camino.\n\n` +
                     `Pronto llegará a tu dirección.`;
                     
@@ -1012,7 +1012,7 @@ Envía el número de tu elección`;
             } else if (nuevoEstado === ORDER_STATES.DELIVERED) {
                 const mensaje = `✅ *PEDIDO ENTREGADO*\n\n` +
                     `Tu pedido *${pedidoId}* ha sido entregado.\n\n` +
-                    `¡Gracias por tu compra! ☕\n` +
+                    `Gracias por tu compra!\n` +
                     `Esperamos verte pronto.`;
                     
                 await messageService.sendMessage(clientPhone, mensaje);
