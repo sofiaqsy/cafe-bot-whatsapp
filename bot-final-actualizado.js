@@ -1,112 +1,3 @@
-From, respuestaFinal);
-                    } else {
-                        console.error('[ERROR] Error subiendo a Drive:', resultado.error);
-                        await enviarMensaje(From, 'Error al guardar el comprobante. Por favor, escribe "listo" para continuar.');
-                    }
-                } catch (error) {
-                    console.error('Error procesando imagen:', error.message);
-                    
-                    // Aunque falle la imagen, procesar el pedido
-                    console.log('[AVISO] Procesando pedido aunque falle la imagen...');
-                    
-                    // Procesar como si hubiera escrito "listo"
-                    const respuestaComprobante = await manejarMensaje(From, 'listo');
-                    
-                    // Obtener el pedido actualizado
-                    const pedidoActualizado = Array.from(pedidosConfirmados.values())
-                        .find(p => p.telefono === From && p.estado === 'Pendiente verificación');
-                    
-                    // Enviar notificación sin link pero con aviso
-                    if (notificationService && pedidoActualizado) {
-                        await notificationService.notificarComprobanteParaValidacion(
-                            pedidoActualizado,
-                            null, // Sin link porque falló
-                            From // Pasar el número del cliente
-                        );
-                        console.log(`[NOTIF] Notificación enviada (sin imagen)`);
-                    }
-                    
-                    await enviarMensaje(From, respuestaComprobante + 
-                        '\n\n_Nota: Hubo un problema guardando la imagen, pero tu pedido fue registrado correctamente._');
-                }
-            } else {
-                // Drive no configurado, pero aceptar la imagen como confirmación
-                console.log('[AVISO] Drive no configurado, procesando como confirmación de pago');
-                
-                // Procesar como confirmación
-                const respuesta = await manejarMensaje(From, 'listo');
-                await enviarMensaje(From, respuesta + '\n\n_Imagen recibida como comprobante_');
-            }
-        } else {
-            // No está en el paso correcto
-            console.log(`[AVISO] Imagen recibida en paso incorrecto: ${userState.step}`);
-            await enviarMensaje(From, 'Imagen recibida pero no esperada en este momento.\n\nEscribe *menu* para ver opciones.');
-        }
-    } else {
-        // Mensaje de texto normal
-        try {
-            const respuesta = await manejarMensaje(From, Body);
-            await enviarMensaje(From, respuesta);
-        } catch (error) {
-            console.error('Error en webhook:', error);
-        }
-    }
-    
-    res.status(200).send('OK');
-});
-
-// ============================================
-// ENDPOINT PARA NOTIFICACIONES DE CAMBIO DE ESTADO
-// ============================================
-
-// Token secreto para validar webhooks desde Google Sheets
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'tu-token-secreto-seguro-2024';
-
-// Endpoint para recibir notificaciones de cambio de estado
-app.post('/webhook-estado', async (req, res) => {
-    try {
-        // Verificar autorización
-        const authHeader = req.headers.authorization;
-        if (!authHeader || authHeader !== `Bearer ${WEBHOOK_SECRET}`) {
-            console.log('[AVISO] Intento de acceso no autorizado al webhook-estado');
-            return res.status(401).json({ error: 'No autorizado' });
-        }
-
-        const { tipo, pedido, estado, cliente, metadata } = req.body;
-
-        console.log('[NOTIF] Notificación de cambio de estado recibida:');
-        console.log(`   Pedido: ${pedido?.id}`);
-        console.log(`   Estado: ${estado?.anterior} → ${estado?.nuevo}`);
-        console.log(`   Cliente: ${cliente?.whatsapp}`);
-
-        // Validar datos requeridos
-        if (!pedido?.id || !estado?.nuevo || !cliente?.whatsapp) {
-            return res.status(400).json({ error: 'Datos incompletos' });
-        }
-
-        // Generar mensaje según el nuevo estado
-        const mensaje = generarMensajeEstadoNotificacion(pedido, estado.nuevo);
-
-        // Formatear número de WhatsApp
-        const numeroWhatsApp = cliente.whatsapp.startsWith('whatsapp:') ? 
-            cliente.whatsapp : `whatsapp:${cliente.whatsapp}`;
-
-        // Enviar notificación al cliente
-        if (twilioConfigured && client) {
-            try {
-                await client.messages.create({
-                    body: mensaje,
-                    from: TWILIO_PHONE_NUMBER,
-                    to: numeroWhatsApp
-                });
-
-                console.log(`[OK] Notificación de estado enviada a ${numeroWhatsApp}`);
-                res.status(200).json({ 
-                    success: true, 
-                    message: 'Notificación enviada',
-                    pedido: pedido.id 
-                });
-
             } catch (error) {
                 console.error('[ERROR] Error enviando notificación:', error.message);
                 res.status(500).json({ 
@@ -427,7 +318,6 @@ app.listen(PORT, () => {
     ${DEV_MODE ? 'Los mensajes se mostrarán en la consola\n' : ''}
     
     FUNCIONALIDADES v5.0:
-    [OK] Catálogo dinámico desde Google Sheets
     [OK] Sin emoticonos - interfaz profesional
     [OK] Muestra pedidos pendientes al inicio
     [OK] Opción "Volver a pedir" con historial
@@ -435,19 +325,7 @@ app.listen(PORT, () => {
     [OK] Reorden va directo al pago
     [OK] Diferencia entre pedidos nuevos y reordenes
     [OK] Contador de clientes registrados
-    [OK] Integración con Drive para comprobantes
     `);
-    
-    // Cargar catálogo inicial
-    if (SPREADSHEET_ID) {
-        obtenerCatalogo().then(catalogo => {
-            if (catalogo && Object.keys(catalogo).length > 0) {
-                console.log(`[OK] Catálogo inicial cargado: ${Object.keys(catalogo).length} productos`);
-            } else {
-                console.log('[INFO] Usando catálogo por defecto');
-            }
-        });
-    }
 });
 
 module.exports = app;
