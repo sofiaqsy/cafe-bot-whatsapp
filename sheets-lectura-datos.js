@@ -88,7 +88,10 @@ async function obtenerPedidosActivosDesdeSheets(googleSheets, telefono) {
             const row = pedidos[i];
             // Normalizar el WhatsApp de la columna T también
             const whatsappPedido = row[19] ? 
-                row[19].replace('+51', '').replace(/[^0-9]/g, '') : ''; // Quitar +51 y dejar solo números
+                String(row[19])
+                    .replace(/^'/, '')  // Quitar apóstrofe inicial si existe
+                    .replace('+51', '') // Quitar prefijo
+                    .replace(/[^0-9]/g, '') : ''; // Solo números
             const estado = row[14] || ''; // Columna O
             
             // Solo pedidos del usuario que NO estén completados/cancelados
