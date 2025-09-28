@@ -14,10 +14,19 @@ router.post('/webhook-estado', async (req, res) => {
         const authHeader = req.headers.authorization;
         const token = authHeader && authHeader.split(' ')[1];
         
-        if (token !== process.env.WEBHOOK_SECRET_TOKEN && token !== 'test') {
-            console.log('❌ Token inválido:', token);
+        // Usar WEBHOOK_SECRET que ya existe en Heroku
+        const validToken = process.env.WEBHOOK_SECRET || 'test';
+        
+        console.log('🔐 Validando token...');
+        console.log('   Token recibido:', token);
+        console.log('   Token esperado:', validToken);
+        
+        if (!token || (token !== validToken && token !== 'test')) {
+            console.log('❌ Token inválido');
             return res.status(401).json({ error: 'Unauthorized' });
         }
+        
+        console.log('✅ Token válido');
         
         const { tipo, pedido, estado, cliente, metadata } = req.body;
         
