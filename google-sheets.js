@@ -399,6 +399,13 @@ class GoogleSheetsIntegration {
         try {
             console.log(`🔍 Buscando cliente con WhatsApp: ${telefonoWhatsApp}`);
             
+            // Preparar ambos formatos para búsqueda
+            const formatoCompleto = telefonoWhatsApp; // whatsapp:+51936934501
+            const formatoNumero = telefonoWhatsApp.replace('whatsapp:', ''); // +51936934501
+            
+            console.log(`   Formato completo: ${formatoCompleto}`);
+            console.log(`   Formato número: ${formatoNumero}`);
+            
             // Obtener todos los clientes
             const response = await this.sheets.spreadsheets.values.get({
                 spreadsheetId: this.spreadsheetId,
@@ -410,15 +417,19 @@ class GoogleSheetsIntegration {
                 return null;
             }
             
-            // Buscar cliente por WhatsApp completo (columna B, índice 1)
+            // Buscar cliente por WhatsApp - compatible con ambos formatos
             const clientes = response.data.values.slice(1); // Omitir encabezados
             const clienteRow = clientes.find(row => {
-                // Comparar con el formato completo whatsapp:+51...
-                return row[1] === telefonoWhatsApp;
+                const whatsappGuardado = row[1] || '';
+                // Buscar con ambos formatos para compatibilidad
+                return whatsappGuardado === formatoCompleto || 
+                       whatsappGuardado === formatoNumero;
             });
             
             if (clienteRow) {
                 console.log(`✅ Cliente encontrado: ${clienteRow[2]}`);
+                console.log(`   WhatsApp guardado: ${clienteRow[1]}`);
+                console.log(`   Coincidencia con: ${clienteRow[1] === formatoCompleto ? 'formato completo' : 'formato número'}`);
                 return {
                     idCliente: clienteRow[0],
                     whatsapp: clienteRow[1],
