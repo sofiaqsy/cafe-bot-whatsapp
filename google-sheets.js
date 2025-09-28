@@ -614,6 +614,21 @@ class GoogleSheetsIntegration {
 
             console.log(`✅ Pedido ${datosPedido.id} agregado a Google Sheets`);
             console.log(`👤 Cliente: ${idCliente}`);
+            
+            // Actualizar stock del producto vendido
+            if (datosPedido.producto && datosPedido.cantidad) {
+                const idProducto = datosPedido.producto.id || datosPedido.producto.codigo || null;
+                if (idProducto) {
+                    console.log(`📦 Actualizando stock del producto ${idProducto}...`);
+                    const stockActualizado = await this.actualizarStock(idProducto, datosPedido.cantidad);
+                    if (stockActualizado) {
+                        console.log(`✅ Stock actualizado correctamente`);
+                    } else {
+                        console.log(`⚠️ No se pudo actualizar el stock`);
+                    }
+                }
+            }
+            
             return true;
         } catch (error) {
             console.error('❌ Error agregando pedido a Sheets:', error.message);
@@ -781,10 +796,11 @@ class GoogleSheetsIntegration {
             response.data.values.forEach((row, index) => {
                 console.log(`   Fila ${index}: ID=${row[0]}, Nombre=${row[1]}, Estado=${row[8]}`);
                 
-                // Verificar que el producto tenga ID y estado ACTIVO (columna I, índice 8)
-                if (row[0] && row[8] === 'ACTIVO') {
+                // Verificar que el producto tenga ID, estado ACTIVO y stock disponible
+                if (row[0] && row[8] === 'ACTIVO' && parseFloat(row[6]) > 0) {
                     productosActivos++;
                     const numero = productosActivos.toString();
+                    const stockDisponible = parseFloat(row[6]) || 0;
                     productos[numero] = {
                         id: row[0], // ID_Producto
                         numero: numero,
@@ -793,15 +809,17 @@ class GoogleSheetsIntegration {
                         origen: row[3] || 'Origen no especificado', // Origen
                         puntaje: row[4] || '', // Puntaje
                         agricultor: row[5] || '', // Agricultor
-                        stock: parseFloat(row[6]) || 0, // Stock_Kg
+                        stock: stockDisponible, // Stock_Kg
                         descripcion: row[7] || 'Sin descripción', // Descripcion
-                        disponible: true,
+                        disponible: stockDisponible > 0,
                         estado: row[8] || '', // Estado
                         fechaModificacion: row[9] || '' // Ultima_Modificacion
                     };
-                    console.log(`     ✅ Producto añadido: ${numero}. ${productos[numero].nombre} - S/${productos[numero].precio}/kg`);
+                    console.log(`     ✅ Producto añadido: ${numero}. ${productos[numero].nombre} - S/${productos[numero].precio}/kg - Stock: ${stockDisponible}kg`);
                 } else {
-                    console.log(`     ❌ Producto omitido (Estado: ${row[8] || 'vacío'})`);
+                    const razon = row[8] !== 'ACTIVO' ? 'Estado: ' + (row[8] || 'vacío') : 
+                                 parseFloat(row[6]) <= 0 ? 'Sin stock' : 'Sin ID';
+                    console.log(`     ❌ Producto omitido (${razon})`);
                 }
             });
             
@@ -832,39 +850,77 @@ class GoogleSheetsIntegration {
     /**
      * Actualizar stock de un producto
      */
-    async actualizarStock(numeroProducto, nuevoStock) {
+    async actualizarStock(idProducto, cantidadVendida) {
         if (!this.initialized) return false;
         
         try {
-            // Obtener todos los productos para encontrar la fila
+            console.log(`📦 Actualizando stock para producto ${idProducto}, cantidad vendida: ${cantidadVendida}kg`);
+            
+            // Obtener todos los productos para encontrar la fila correcta
             const response = await this.sheets.spreadsheets.values.get({
                 spreadsheetId: this.spreadsheetId,
-                range: 'CatalogoWhatsApp!A:A'
+                range: 'CatalogoWhatsApp!A:G' // A: ID, B: Nombre, ..., G: Stock_Kg
             });
             
-            if (!response.data.values) return false;
+            if (!response.data.values || response.data.values.length <= 1) {
+                console.log('❌ No se encontraron productos');
+                return false;
+            }
             
-            // Encontrar la fila del producto
-            const filaIndex = response.data.values.findIndex(row => row[0] === numeroProducto.toString());
+            // Buscar el producto por ID (columna A)
+            const filaIndex = response.data.values.findIndex(row => row[0] === idProducto);
             
             if (filaIndex > 0) {
-                // Actualizar el stock (columna H)
+                // Obtener stock actual (columna G, índice 6)
+                const stockActual = parseFloat(response.data.values[filaIndex][6]) || 0;
+                const nuevoStock = Math.max(0, stockActual - cantidadVendida); // No permitir stock negativo
+                
+                console.log(`   Stock actual: ${stockActual}kg`);
+                console.log(`   Cantidad vendida: ${cantidadVendida}kg`);
+                console.log(`   Nuevo stock: ${nuevoStock}kg`);
+                
+                // Actualizar el stock (columna G)
                 await this.sheets.spreadsheets.values.update({
                     spreadsheetId: this.spreadsheetId,
-                    range: `CatalogoWhatsApp!H${filaIndex + 1}`,
+                    range: `CatalogoWhatsApp!G${filaIndex + 1}`,
                     valueInputOption: 'RAW',
                     requestBody: {
                         values: [[nuevoStock.toString()]]
                     }
                 });
                 
-                console.log(`✅ Stock actualizado para producto ${numeroProducto}: ${nuevoStock}kg`);
+                // Actualizar fecha de última modificación (columna J)
+                const fechaActual = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
+                await this.sheets.spreadsheets.values.update({
+                    spreadsheetId: this.spreadsheetId,
+                    range: `CatalogoWhatsApp!J${filaIndex + 1}`,
+                    valueInputOption: 'RAW',
+                    requestBody: {
+                        values: [[fechaActual]]
+                    }
+                });
+                
+                // Si el stock es 0, cambiar estado a AGOTADO (columna I)
+                if (nuevoStock === 0) {
+                    console.log('⚠️ Producto agotado, actualizando estado...');
+                    await this.sheets.spreadsheets.values.update({
+                        spreadsheetId: this.spreadsheetId,
+                        range: `CatalogoWhatsApp!I${filaIndex + 1}`,
+                        valueInputOption: 'RAW',
+                        requestBody: {
+                            values: [['AGOTADO']]
+                        }
+                    });
+                }
+                
+                console.log(`✅ Stock actualizado exitosamente para ${response.data.values[filaIndex][1]}`);
                 return true;
+            } else {
+                console.log(`❌ No se encontró el producto con ID: ${idProducto}`);
+                return false;
             }
-            
-            return false;
         } catch (error) {
-            console.error('Error actualizando stock:', error.message);
+            console.error('❌ Error actualizando stock:', error.message);
             return false;
         }
     }

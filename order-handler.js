@@ -270,11 +270,20 @@ O escribe *menu* para volver al menú`;
                 const cantidad = parseFloat(mensaje);
                 
                 if (!isNaN(cantidad) && cantidad >= config.business.deliveryMin) {
-                    fullState.data.cantidad = cantidad;
-                    const total = cantidad * fullState.data.producto.precio;
-                    fullState.data.total = total;
+                    // Verificar si hay stock suficiente
+                    if (fullState.data.producto.stock && cantidad > fullState.data.producto.stock) {
+                        respuesta = `Stock insuficiente.
 
-                    respuesta = `*RESUMEN DEL PEDIDO*
+*Stock disponible:* ${fullState.data.producto.stock}kg
+*Cantidad solicitada:* ${cantidad}kg
+
+Por favor, ingresa una cantidad menor o igual a ${fullState.data.producto.stock}kg:`;
+                    } else {
+                        fullState.data.cantidad = cantidad;
+                        const total = cantidad * fullState.data.producto.precio;
+                        fullState.data.total = total;
+
+                        respuesta = `*RESUMEN DEL PEDIDO*
 
 *${fullState.data.producto.nombre}*
 Cantidad: *${cantidad} kg*
@@ -288,7 +297,8 @@ Precio unitario: ${this.formatearPrecio(fullState.data.producto.precio)}/kg
 Envía *SI* para continuar
 Envía *NO* para cancelar
 Envía *MENU* para volver`;
-                    fullState.step = 'confirmar_pedido';
+                        fullState.step = 'confirmar_pedido';
+                    }
                 } else if (!isNaN(cantidad) && cantidad < config.business.deliveryMin) {
                     respuesta = `❌ El pedido mínimo es de *5kg*
 
