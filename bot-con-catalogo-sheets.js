@@ -194,12 +194,11 @@ async function manejarMensaje(from, body) {
     console.log(`[MENSAJE] De: ${from} | Texto: "${mensaje}" | Estado: ${userState.step}`);
 
     try {
-        // Detectar palabras clave en cualquier momento
         const mensajeLower = mensaje.toLowerCase();
         
         // Si escribe "catálogo" en cualquier momento
         if (mensajeLower.includes('catálogo') || mensajeLower.includes('catalogo') || 
-            mensajeLower.includes('productos') || mensajeLower === '1' && userState.step === 'menu_principal') {
+            mensajeLower.includes('productos')) {
             
             const catalogo = await obtenerCatalogo();
             respuesta = formatearCatalogo(catalogo);
@@ -213,7 +212,7 @@ async function manejarMensaje(from, body) {
                 if (mensajeLower.includes('hola')) {
                     respuesta = `Bienvenido a ${BUSINESS_CONFIG.name}
 
-¿En qué podemos ayudarte hoy?
+En qué podemos ayudarte hoy:
 
 1. Ver catálogo de productos
 2. Hacer un pedido
@@ -221,10 +220,10 @@ async function manejarMensaje(from, body) {
 4. Información de contacto
 5. Hablar con un asesor
 
-Escribe el número de tu opción o "catálogo" para ver productos`;
+Escribe el número de tu opción`;
                     userState.step = 'menu_principal';
                 } else {
-                    respuesta = 'Hola, escribe "hola" para comenzar o "catálogo" para ver productos.';
+                    respuesta = 'Hola, escribe "hola" para comenzar.';
                 }
                 break;
 
@@ -237,7 +236,7 @@ Escribe el número de tu opción o "catálogo" para ver productos`;
                         break;
 
                     case '2':
-                        respuesta = '¿Cuál es el nombre de tu cafetería o negocio?';
+                        respuesta = 'Cuál es el nombre de tu cafetería o negocio:';
                         userState.step = 'pedido_nombre';
                         break;
 
@@ -265,17 +264,17 @@ Mientras tanto, puedes escribir tu consulta y la procesaremos.`;
                         break;
 
                     default:
-                        respuesta = 'Por favor, selecciona una opción válida (1-5) o escribe "catálogo".';
+                        respuesta = 'Por favor, selecciona una opción válida (1-5).';
                 }
                 break;
 
             case 'viendo_catalogo':
                 if (mensajeLower.includes('pedido') || mensajeLower === 'sí' || mensajeLower === 'si') {
-                    respuesta = '¿Cuál es el nombre de tu cafetería o negocio?';
+                    respuesta = 'Cuál es el nombre de tu cafetería o negocio:';
                     userState.step = 'pedido_nombre';
                 } else if (mensajeLower.includes('menú') || mensajeLower.includes('menu')) {
                     respuesta = `Menú principal:
-1. Catálogo | 2. Pedido | 3. Estado | 4. Info | 5. Asesor`;
+1. Catálogo / 2. Pedido / 3. Estado / 4. Info / 5. Asesor`;
                     userState.step = 'menu_principal';
                 } else {
                     // Verificar si seleccionó un producto por número
@@ -289,7 +288,7 @@ Mientras tanto, puedes escribir tu consulta y la procesaremos.`;
 Precio: S/${productoSeleccionado.precio}/kg
 Stock disponible: ${productoSeleccionado.stock}kg
 
-¿Cuál es el nombre de tu cafetería o negocio?`;
+Cuál es el nombre de tu cafetería o negocio:`;
                         userState.step = 'pedido_nombre_con_producto';
                     } else {
                         respuesta = 'Escribe "pedido" para hacer un pedido, el número del producto, o "menú" para volver.';
@@ -303,7 +302,7 @@ Stock disponible: ${productoSeleccionado.stock}kg
 
 Ya tienes seleccionado: *${userState.data.producto.nombre}*
 
-¿Cuántos kilos deseas? (mínimo 5kg, máximo ${userState.data.producto.stock}kg disponibles)`;
+Cuántos kilos deseas (mínimo 5kg, máximo ${userState.data.producto.stock}kg disponibles):`;
                 userState.step = 'pedido_cantidad';
                 break;
 
@@ -338,7 +337,7 @@ Ya tienes seleccionado: *${userState.data.producto.nombre}*
 Precio: S/${producto.precio}/kg
 Stock disponible: ${producto.stock}kg
 
-¿Cuántos kilos deseas? (mínimo 5kg)`;
+Cuántos kilos deseas (mínimo 5kg):`;
                     userState.step = 'pedido_cantidad';
                 } else {
                     respuesta = 'Por favor, selecciona un número de producto válido.';
@@ -352,7 +351,7 @@ Stock disponible: ${producto.stock}kg
                 if (!isNaN(cantidad) && cantidad >= 5) {
                     if (cantidad > productoActual.stock) {
                         respuesta = `Lo sentimos, solo tenemos ${productoActual.stock}kg disponibles.
-¿Cuántos kilos deseas? (máximo ${productoActual.stock}kg)`;
+Cuántos kilos deseas (máximo ${productoActual.stock}kg):`;
                     } else {
                         userState.data.cantidad = cantidad;
                         const subtotal = cantidad * productoActual.precio;
@@ -370,7 +369,7 @@ Subtotal: S/${subtotal.toFixed(2)}
 ${descuento > 0 ? `Descuento (10%): -S/${descuento.toFixed(2)}` : 'Sin descuento'}
 *TOTAL: S/${total.toFixed(2)}*
 
-¿Cuál es la dirección de entrega?`;
+Cuál es la dirección de entrega:`;
                         userState.step = 'pedido_direccion';
                     }
                 } else {
@@ -380,7 +379,7 @@ ${descuento > 0 ? `Descuento (10%): -S/${descuento.toFixed(2)}` : 'Sin descuento
 
             case 'pedido_direccion':
                 userState.data.direccion = mensaje;
-                respuesta = '¿Número de contacto para la entrega?';
+                respuesta = 'Número de contacto para la entrega:';
                 userState.step = 'pedido_contacto';
                 break;
 
@@ -411,22 +410,45 @@ Tiempo estimado: 24-48 horas
 Guarda tu ID para seguimiento.
 Gracias por tu compra.
 
-Escribe "menú" para volver al inicio o "catálogo" para ver más productos.`;
+Escribe "menú" para volver al inicio.`;
                 
                 userState = { step: 'pedido_completado', data: {} };
+                break;
+
+            case 'consulta_pedido':
+                const idConsulta = mensaje.toUpperCase();
+                if (pedidosConfirmados.has(idConsulta)) {
+                    const pedido = pedidosConfirmados.get(idConsulta);
+                    respuesta = `*ESTADO DEL PEDIDO ${idConsulta}*
+
+Cliente: ${pedido.nombreNegocio}
+Producto: ${pedido.producto.nombre}
+Cantidad: ${pedido.cantidad}kg
+Total: S/${pedido.total.toFixed(2)}
+Estado: ${pedido.estado}
+Fecha: ${pedido.fecha.toLocaleDateString()}
+
+Escribe "menú" para volver.`;
+                } else {
+                    respuesta = `No se encontró el pedido ${idConsulta}.
+Verifica el ID e intenta nuevamente.
+
+Escribe "menú" para volver.`;
+                }
+                userState.step = 'consulta_completada';
                 break;
 
             default:
                 if (mensajeLower.includes('menú') || mensajeLower.includes('menu')) {
                     respuesta = `Menú principal:
-1. Catálogo | 2. Pedido | 3. Estado | 4. Info | 5. Asesor`;
+1. Catálogo / 2. Pedido / 3. Estado / 4. Info / 5. Asesor`;
                     userState.step = 'menu_principal';
                 } else if (mensajeLower.includes('catálogo') || mensajeLower.includes('catalogo')) {
                     const catalogoDefault = await obtenerCatalogo();
                     respuesta = formatearCatalogo(catalogoDefault);
                     userState.step = 'viendo_catalogo';
                 } else {
-                    respuesta = 'No entendí tu mensaje. Escribe "menú" para ver opciones o "catálogo" para ver productos.';
+                    respuesta = 'No entendí tu mensaje. Escribe "menú" para ver opciones.';
                 }
         }
 
@@ -487,7 +509,7 @@ app.get('/test', (req, res) => {
         <body>
             <h1>Probar Bot</h1>
             <div class="chat-container" id="chat">
-                <div class="message bot">Hola, escribe "hola" para comenzar o "catálogo" para ver productos.</div>
+                <div class="message bot">Hola, escribe "hola" para comenzar.</div>
             </div>
             <input type="text" id="input" placeholder="Escribe tu mensaje..." />
             <button onclick="enviar()">Enviar</button>

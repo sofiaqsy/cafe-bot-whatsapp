@@ -1,11 +1,11 @@
 {
   "name": "cafe-bot-whatsapp",
-  "version": "4.1.0",
-  "description": "Bot de WhatsApp para gestión de pedidos de café con integración Google Sheets",
-  "main": "bot-final.js",
+  "version": "5.0.0",
+  "description": "Bot de WhatsApp para gestión de pedidos de café con catálogo dinámico desde Google Sheets",
+  "main": "bot.js",
   "scripts": {
-    "start": "node bot-final.js",
-    "dev": "nodemon bot-final.js",
+    "start": "node bot.js",
+    "dev": "nodemon bot.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
@@ -28,7 +28,8 @@
     "cafe",
     "bot",
     "heroku",
-    "google-sheets"
+    "google-sheets",
+    "catalogo"
   ],
   "author": "Coffee Express",
   "license": "MIT",
