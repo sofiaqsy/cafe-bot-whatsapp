@@ -306,24 +306,62 @@ Mínimo: 5kg`;
                 
             case 'confirmar_pedido':
                 if (mensaje.toLowerCase() === 'si' || mensaje.toLowerCase() === 'sí') {
-                    // Verificar si ya tenemos datos del cliente
-                    const datosGuardados = stateManager.getCustomerData(from);
+                    // Primero verificar si existe en Google Sheets
+                    let clienteExistente = null;
+                    if (this.sheetsService) {
+                        try {
+                            clienteExistente = await this.sheetsService.buscarCliente(from);
+                            if (clienteExistente) {
+                                console.log(`✅ Cliente existente encontrado en Sheets: ${clienteExistente.empresa}`);
+                            }
+                        } catch (error) {
+                            console.error('Error buscando cliente en Sheets:', error);
+                        }
+                    }
                     
-                    if (datosGuardados) {
-                        // Ya tenemos los datos, usar los guardados
+                    // Si existe en Sheets, usar esos datos
+                    if (clienteExistente) {
                         fullState.data = {
                             ...fullState.data,
-                            ...datosGuardados
+                            empresa: clienteExistente.empresa,
+                            contacto: clienteExistente.contacto,
+                            telefono: clienteExistente.telefonoContacto,
+                            direccion: clienteExistente.direccion
                         };
                         
-                        // Ir directo al pago
-                        respuesta = `✅ *PEDIDO CONFIRMADO*
+                        // Preguntar si quiere confirmar o cambiar los datos
+                        respuesta = `👥 *CLIENTE REGISTRADO*
+
+Hemos encontrado tus datos:
+
+🏪 Empresa: *${clienteExistente.empresa}*
+👤 Contacto: *${clienteExistente.contacto}*
+📱 Teléfono: *${clienteExistente.telefonoContacto}*
+📍 Dirección: *${clienteExistente.direccion}*
+
+*¿Los datos son correctos?*
+
+Envía *SI* para confirmar
+Envía *NO* para actualizar los datos`;
+                        fullState.step = 'confirmar_datos_cliente';
+                    } else {
+                        // No existe, verificar si hay datos guardados localmente
+                        const datosGuardados = stateManager.getCustomerData(from);
+                        
+                        if (datosGuardados) {
+                            // Usar datos guardados localmente
+                            fullState.data = {
+                                ...fullState.data,
+                                ...datosGuardados
+                            };
+                            
+                            respuesta = `✅ *PEDIDO CONFIRMADO*
 
 Usando tus datos registrados:
-🏢 ${datosGuardados.empresa}
+🏪 ${datosGuardados.empresa}
 📍 ${datosGuardados.direccion}
 
-━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
 
 *MÉTODO DE PAGO*
 💳 Realiza la transferencia a:
@@ -336,21 +374,22 @@ Usando tus datos registrados:
 
 *Titular:* ${config.business.name}
 
-━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━
 
 💰 *Monto a transferir: ${this.formatearPrecio(fullState.data.total)}*
 
 📸 *Una vez realizada la transferencia, envía la foto del voucher o comprobante*
 
 _El pedido será confirmado tras verificar el pago_`;
-                        
-                        fullState.step = 'esperando_comprobante';
-                    } else {
-                        // Primera vez, pedir datos - NO PEDIR EMAIL
-                        respuesta = `👤 *DATOS DEL CLIENTE*
+                            
+                            fullState.step = 'esperando_comprobante';
+                        } else {
+                            // Primera vez, pedir datos
+                            respuesta = `👤 *DATOS DEL CLIENTE*
 
 Por favor, ingresa el *nombre de tu empresa o negocio*:`;
-                        fullState.step = 'datos_empresa';
+                            fullState.step = 'datos_empresa';
+                        }
                     }
                 } else if (mensaje.toLowerCase() === 'no') {
                     fullState.data = {};
@@ -448,6 +487,51 @@ _Escribe *"listo"* o *"enviado"* para confirmar_
 💡 *Tu código de pedido es: ${pedidoTempId}*`;
                 
                 fullState.step = 'esperando_comprobante';
+                break;
+                
+            case 'confirmar_datos_cliente':
+                if (mensaje.toLowerCase() === 'si' || mensaje.toLowerCase() === 'sí') {
+                    // Usar los datos existentes y continuar con el pago
+                    respuesta = `✅ *PEDIDO CONFIRMADO*
+
+Datos confirmados:
+🏪 ${fullState.data.empresa}
+📍 ${fullState.data.direccion}
+
+━━━━━━━━━━━━━━━━━━
+
+*MÉTODO DE PAGO*
+💳 Realiza la transferencia a:
+
+*Cuenta BCP Soles:*
+*${config.business.banking.bcpCuenta}*
+
+*Cuenta Interbancaria (CCI):*
+*${config.business.banking.cciCuenta}*
+
+*Titular:* ${config.business.name}
+
+━━━━━━━━━━━━━━━━━━
+
+💰 *Monto a transferir: ${this.formatearPrecio(fullState.data.total)}*
+
+📸 *Una vez realizada la transferencia, envía la foto del voucher o comprobante*
+
+_El pedido será confirmado tras verificar el pago_`;
+                    
+                    fullState.step = 'esperando_comprobante';
+                } else if (mensaje.toLowerCase() === 'no') {
+                    // Pedir nuevos datos
+                    respuesta = `👤 *ACTUALIZAR DATOS*
+
+Por favor, ingresa el *nombre de tu empresa o negocio*:`;
+                    fullState.step = 'datos_empresa';
+                } else {
+                    respuesta = `Por favor, responde:
+
+*SI* - Los datos son correctos
+*NO* - Quiero actualizar los datos`;
+                }
                 break;
                 
             case 'seleccionar_reorden':

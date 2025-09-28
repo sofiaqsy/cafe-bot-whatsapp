@@ -397,10 +397,7 @@ class GoogleSheetsIntegration {
         if (!this.initialized) return null;
         
         try {
-            // Normalizar teléfono
-            const telefonoNormalizado = telefonoWhatsApp
-                .replace('whatsapp:', '')
-                .replace(/[^0-9+]/g, '');
+            console.log(`🔍 Buscando cliente con WhatsApp: ${telefonoWhatsApp}`);
             
             // Obtener todos los clientes
             const response = await this.sheets.spreadsheets.values.get({
@@ -413,11 +410,11 @@ class GoogleSheetsIntegration {
                 return null;
             }
             
-            // Buscar cliente por teléfono
+            // Buscar cliente por WhatsApp completo (columna B, índice 1)
             const clientes = response.data.values.slice(1); // Omitir encabezados
             const clienteRow = clientes.find(row => {
-                const telCliente = row[1] ? row[1].replace(/[^0-9+]/g, '') : '';
-                return telCliente === telefonoNormalizado;
+                // Comparar con el formato completo whatsapp:+51...
+                return row[1] === telefonoWhatsApp;
             });
             
             if (clienteRow) {
@@ -441,7 +438,7 @@ class GoogleSheetsIntegration {
                 };
             }
             
-            console.log(`ℹ️ Cliente no encontrado: ${telefonoNormalizado}`);
+            console.log(`ℹ️ Cliente no encontrado con WhatsApp: ${telefonoWhatsApp}`);
             return null;
         } catch (error) {
             console.error('Error buscando cliente:', error.message);
@@ -456,9 +453,7 @@ class GoogleSheetsIntegration {
         if (!this.initialized) return null;
         
         try {
-            const telefonoNormalizado = datosCliente.whatsapp
-                .replace('whatsapp:', '')
-                .replace(/[^0-9+]/g, '');
+            console.log(`💾 Guardando cliente con WhatsApp: ${datosCliente.whatsapp}`);
             
             // Buscar si el cliente ya existe
             const clienteExistente = await this.buscarCliente(datosCliente.whatsapp);
@@ -480,7 +475,7 @@ class GoogleSheetsIntegration {
                 if (filaCliente > 0) {
                     const nuevosValores = [[
                         clienteExistente.idCliente,
-                        telefonoNormalizado,
+                        datosCliente.whatsapp,  // GUARDAR WHATSAPP COMPLETO
                         datosCliente.empresa || clienteExistente.empresa,
                         datosCliente.contacto || clienteExistente.contacto,
                         datosCliente.telefonoContacto || clienteExistente.telefonoContacto,
@@ -515,10 +510,10 @@ class GoogleSheetsIntegration {
                 
                 const nuevosValores = [[
                     idCliente,
-                    telefonoNormalizado,
+                    datosCliente.whatsapp,  // GUARDAR WHATSAPP COMPLETO (whatsapp:+51...)
                     datosCliente.empresa || 'Sin nombre',
                     datosCliente.contacto || '',
-                    datosCliente.telefonoContacto || telefonoNormalizado,
+                    datosCliente.telefonoContacto || datosCliente.whatsapp.replace('whatsapp:', '').replace(/[^0-9+]/g, ''),
                     datosCliente.email || '',
                     datosCliente.direccion || '',
                     datosCliente.distrito || '',
