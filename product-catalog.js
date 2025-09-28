@@ -4,54 +4,8 @@
  * Ahora lee desde Google Sheets (hoja CatalogoWhatsApp)
  */
 
-// Productos por defecto (fallback si Sheets no está disponible)
-const PRODUCTOS_DEFAULT = {
-    '1': {
-        id: 'premium',
-        numero: '1',
-        nombre: 'Café Arábica Premium',
-        precio: 50,
-        origen: 'Chanchamayo, Junín',
-        descripcion: 'Notas de chocolate y frutos rojos',
-        disponible: true
-    },
-    '2': {
-        id: 'estandar',
-        numero: '2',
-        nombre: 'Café Arábica Estándar',
-        precio: 40,
-        origen: 'Satipo, Junín',
-        descripcion: 'Notas de caramelo y nueces',
-        disponible: true
-    },
-    '3': {
-        id: 'organico',
-        numero: '3',
-        nombre: 'Café Orgánico Certificado',
-        precio: 60,
-        origen: 'Villa Rica, Pasco',
-        descripcion: 'Notas florales y cítricas',
-        disponible: true
-    },
-    '4': {
-        id: 'mezcla',
-        numero: '4',
-        nombre: 'Mezcla Especial Cafeterías',
-        precio: 35,
-        origen: 'Blend peruano',
-        descripcion: 'Equilibrado, ideal para espresso',
-        disponible: true
-    },
-    '5': {
-        id: 'descafeinado',
-        numero: '5',
-        nombre: 'Café Descafeinado Suave',
-        precio: 45,
-        origen: 'Cusco',
-        descripcion: 'Suave y aromático, sin cafeína',
-        disponible: true
-    }
-};
+// Productos por defecto vacíos - se cargarán desde Google Sheets
+const PRODUCTOS_DEFAULT = {};
 
 class ProductCatalog {
     constructor() {
@@ -65,7 +19,7 @@ class ProductCatalog {
      * Inicializar con el servicio de Google Sheets
      */
     async initialize(sheetsService) {
-        console.log('📦 ProductCatalog.initialize() llamado');
+        console.log('ProductCatalog.initialize() llamado');
         console.log(`   sheetsService recibido: ${sheetsService ? 'Sí' : 'No'}`);
         
         this.sheetsService = sheetsService;
@@ -76,11 +30,11 @@ class ProductCatalog {
         
         // Configurar actualización automática cada 5 minutos
         this.updateInterval = setInterval(() => {
-            console.log('🔄 Actualización automática del catálogo...');
+            console.log('Actualización automática del catálogo...');
             this.loadFromSheets();
         }, 5 * 60 * 1000);
         
-        console.log('📦 ProductCatalog inicializado con Google Sheets');
+        console.log('ProductCatalog inicializado con Google Sheets');
         console.log(`   Productos cargados: ${Object.keys(this.products).length}`);
     }
     
@@ -88,18 +42,18 @@ class ProductCatalog {
      * Cargar productos desde Google Sheets
      */
     async loadFromSheets() {
-        console.log('📦 loadFromSheets() llamado');
+        console.log('loadFromSheets() llamado');
         console.log(`   sheetsService disponible: ${this.sheetsService ? 'Sí' : 'No'}`);
         console.log(`   sheetsService inicializado: ${this.sheetsService?.initialized ? 'Sí' : 'No'}`);
         
         if (!this.sheetsService || !this.sheetsService.initialized) {
-            console.log('⚠️ Google Sheets no disponible, usando catálogo por defecto');
-            console.log(`   Productos por defecto: ${Object.keys(this.products).length}`);
+            console.log('Google Sheets no disponible, catálogo vacío');
+            console.log(`   Productos actuales: ${Object.keys(this.products).length}`);
             return false;
         }
         
         try {
-            console.log('📦 Intentando obtener catálogo desde CatalogoWhatsApp...');
+            console.log('Intentando obtener catálogo desde CatalogoWhatsApp...');
             
             const productosSheets = await this.sheetsService.obtenerCatalogo();
             
@@ -108,7 +62,7 @@ class ProductCatalog {
             if (productosSheets && Object.keys(productosSheets).length > 0) {
                 this.products = productosSheets;
                 this.lastUpdate = new Date();
-                console.log(`✅ Catálogo actualizado: ${Object.keys(this.products).length} productos`);
+                console.log(`Catálogo actualizado: ${Object.keys(this.products).length} productos`);
                 
                 // Mostrar productos cargados
                 Object.values(this.products).forEach(p => {
@@ -117,12 +71,13 @@ class ProductCatalog {
                 
                 return true;
             } else {
-                console.log('⚠️ No se pudieron cargar productos, manteniendo catálogo actual');
-                console.log(`   Catálogo actual tiene: ${Object.keys(this.products).length} productos`);
+                console.log('No se encontraron productos activos en Google Sheets');
+                console.log('Catálogo vacío - Se mostrará mensaje de no disponibilidad');
+                this.products = {}; // Vaciar productos para mostrar mensaje de no disponibilidad
                 return false;
             }
         } catch (error) {
-            console.error('❌ Error cargando productos desde Sheets:', error.message);
+            console.error('Error cargando productos desde Sheets:', error.message);
             console.log(`   Catálogo actual tiene: ${Object.keys(this.products).length} productos`);
             return false;
         }
@@ -150,33 +105,33 @@ class ProductCatalog {
     formatProductList() {
         const products = this.getAllProducts();
         
-        console.log(`📦 formatProductList: ${products.length} productos disponibles`);
+        console.log(`formatProductList: ${products.length} productos disponibles`);
         
         if (products.length === 0) {
-            return `☕ *CATÁLOGO DE CAFÉ* ☕\n\n⚠️ No hay productos disponibles en este momento.\n\n_Por favor, inténtalo más tarde o contacta al administrador._`;
+            return `CATÁLOGO DE CAFÉ\n\nNo hay productos disponibles en este momento.\n\nPor favor, intente más tarde o contacte al administrador.\n\n_Escriba *menu* para volver al menú principal_`;
         }
         
-        let message = '☕ *CATÁLOGO DE CAFÉ* ☕\n\n';
+        let message = 'CATÁLOGO DE CAFÉ\n\n';
         
         products.forEach(product => {
             message += `*${product.numero}.* ${product.nombre}\n`;
-            message += `   📍 Origen: ${product.origen}\n`;
-            message += `   🎯 ${product.descripcion}\n`;
-            message += `   💰 Precio: S/${product.precio}/kg\n`;
+            message += `   Origen: ${product.origen}\n`;
+            message += `   ${product.descripcion}\n`;
+            message += `   Precio: S/${product.precio}/kg\n`;
             
             // Mostrar stock si está disponible
             if (product.stock !== undefined && product.stock !== null) {
                 if (product.stock > 0) {
-                    message += `   📦 Stock: ${product.stock}kg disponibles\n`;
+                    message += `   Stock: ${product.stock}kg disponibles\n`;
                 } else {
-                    message += `   ⚠️ *Agotado temporalmente*\n`;
+                    message += `   *Agotado temporalmente*\n`;
                 }
             }
             
             message += '\n';
         });
         
-        message += '📦 *Pedido mínimo: 5kg*\n\n';
+        message += '*Pedido mínimo: 5kg*\n\n';
         message += '_Responde con el número del producto que deseas._';
         return message;
     }
