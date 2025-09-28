@@ -488,4 +488,33 @@ router.get('/health', (req, res) => {
     });
 });
 
+/**
+ * GET /debug/orders
+ * Debug endpoint to show all orders
+ */
+router.get('/debug/orders', (req, res) => {
+    const orders = Array.from(stateManager.confirmedOrders.entries()).map(([id, order]) => ({
+        id,
+        userId: order.userId,
+        telefono: order.telefono,
+        estado: order.status || order.estado,
+        empresa: order.empresa,
+        producto: order.producto?.nombre,
+        total: order.total,
+        fecha: order.timestamp || order.fecha
+    }));
+    
+    res.json({
+        totalOrders: orders.length,
+        orders: orders,
+        debug: {
+            message: 'Para ver más detalles, revisa los logs del servidor',
+            tip: 'Los pedidos pendientes deben tener estado: Pendiente verificación'
+        }
+    });
+    
+    // También imprimir en consola
+    stateManager.debugShowAllOrders();
+});
+
 module.exports = router;

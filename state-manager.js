@@ -3,6 +3,8 @@
  * Manages conversation states and user sessions
  */
 
+const { ORDER_STATES, PENDING_STATES, ACTIVE_STATES } = require('./order-states');
+
 class StateManager {
     constructor() {
         // User conversation states
@@ -97,11 +99,19 @@ class StateManager {
      * Add confirmed order
      */
     addConfirmedOrder(orderId, orderData) {
+        // Usar el estado estándar de Google Sheets
+        const defaultStatus = orderData.status || orderData.estado || ORDER_STATES.PENDING_VERIFICATION;
+        
         this.confirmedOrders.set(orderId, {
             ...orderData,
-            timestamp: new Date(),
-            status: 'pending_payment'
+            timestamp: orderData.timestamp || new Date(),
+            status: defaultStatus,
+            estado: defaultStatus // Mantener ambos por compatibilidad
         });
+        
+        console.log(`📦 Pedido guardado: ${orderId}`);
+        console.log(`   Estado: ${defaultStatus}`);
+        console.log(`   Usuario: ${orderData.userId || orderData.telefono}`);
     }
     
     /**
@@ -129,21 +139,65 @@ class StateManager {
      */
     getUserOrders(userId) {
         const orders = [];
+        
+        // Limpiar el userId para comparación
+        const cleanUserId = userId.replace('whatsapp:', '').replace('+', '');
+        
         this.confirmedOrders.forEach((order, orderId) => {
-            if (order.userId === userId || order.telefono === userId) {
+            // Limpiar los teléfonos para comparación
+            const orderPhone = (order.telefono || '').replace('whatsapp:', '').replace('+', '');
+            const orderUserId = (order.userId || '').replace('whatsapp:', '').replace('+', '');
+            
+            // Comparar ambos campos
+            if (orderUserId.includes(cleanUserId) || 
+                cleanUserId.includes(orderUserId) ||
+                orderPhone.includes(cleanUserId) || 
+                cleanUserId.includes(orderPhone) ||
+                order.userId === userId || 
+                order.telefono === userId) {
                 orders.push({ ...order, id: orderId });
             }
         });
-        return orders.sort((a, b) => b.timestamp - a.timestamp);
+        
+        console.log(`🔍 Buscando pedidos para: ${userId}`);
+        console.log(`   Encontrados: ${orders.length} pedidos`);
+        
+        return orders.sort((a, b) => (b.timestamp || b.fecha) - (a.timestamp || a.fecha));
     }
     
     /**
      * Get pending orders for user
      */
     getPendingOrders(userId) {
-        return this.getUserOrders(userId).filter(
-            order => order.status === 'pending_payment' || 
-                    order.status === 'Pendiente verificación'
+        const allOrders = this.getUserOrders(userId);
+        const pendingOrders = allOrders.filter(
+            order => {
+                const status = order.status || order.estado || '';
+                // Usar los estados pendientes definidos
+                return PENDING_STATES.includes(status);
+            }
+        );
+        
+        console.log(`⏳ Pedidos pendientes para ${userId}: ${pendingOrders.length}`);
+        if (pendingOrders.length > 0) {
+            pendingOrders.forEach(order => {
+                console.log(`   - ${order.id}: ${order.status || order.estado}`);
+            });
+        }
+        
+        return pendingOrders;
+    }
+    
+    /**
+     * Get active orders for user (pending + in process)
+     */
+    getActiveOrders(userId) {
+        const allOrders = this.getUserOrders(userId);
+        return allOrders.filter(
+            order => {
+                const status = order.status || order.estado || '';
+                return ACTIVE_STATES.includes(status);
+            }
         );
     }
     
@@ -228,14 +282,49 @@ class StateManager {
      * Get statistics
      */
     getStats() {
+        const pendingCount = Array.from(this.confirmedOrders.values()).filter(
+            o => {
+                const status = o.status || o.estado || '';
+                return PENDING_STATES.includes(status);
+            }
+        ).length;
+        
+        const activeCount = Array.from(this.confirmedOrders.values()).filter(
+            o => {
+                const status = o.status || o.estado || '';
+                return ACTIVE_STATES.includes(status);
+            }
+        ).length;
+        
         return {
             activeSessions: this.userStates.size,
             totalOrders: this.confirmedOrders.size,
-            pendingOrders: Array.from(this.confirmedOrders.values()).filter(
-                o => o.status === 'pending_payment'
-            ).length,
+            pendingOrders: pendingCount,
+            activeOrders: activeCount,
             registeredCustomers: this.customerData.size
         };
+    }
+    
+    /**
+     * Debug: Show all orders
+     */
+    debugShowAllOrders() {
+        console.log('\n🔍 DEBUG - Todos los pedidos en memoria:');
+        console.log('='.repeat(50));
+        
+        if (this.confirmedOrders.size === 0) {
+            console.log('No hay pedidos en memoria');
+        } else {
+            this.confirmedOrders.forEach((order, id) => {
+                console.log(`\nPedido: ${id}`);
+                console.log(`  Usuario: ${order.userId || 'N/A'}`);
+                console.log(`  Teléfono: ${order.telefono || 'N/A'}`);
+                console.log(`  Estado: ${order.status || order.estado || 'N/A'}`);
+                console.log(`  Empresa: ${order.empresa || 'N/A'}`);
+                console.log(`  Total: ${order.total || 0}`);
+            });
+        }
+        console.log('='.repeat(50));
     }
     
     /**

@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const stateManager = require('./state-manager');
 const config = require('./config');
+const { ORDER_STATES } = require('./order-states');
 
 /**
  * GET /admin

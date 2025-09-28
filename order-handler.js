@@ -8,6 +8,7 @@ const stateManager = require('./state-manager');
 const messageService = require('./message-service');
 const productCatalog = require('./product-catalog');
 const config = require('./config');
+const { ORDER_STATES } = require('./order-states');
 
 class OrderHandler {
     constructor() {
@@ -115,7 +116,7 @@ class OrderHandler {
                             
                             headerPedidos += `\n📦 *${p.id}*\n`;
                             headerPedidos += `   ${p.producto?.nombre || 'Producto'}\n`;
-                            headerPedidos += `   ${p.cantidad}kg - S/${p.total}\n`;
+                            headerPedidos += `   ${p.cantidad}kg - ${this.formatearPrecio(p.total)}\n`;
                             headerPedidos += `   ⏳ Hace ${tiempoTexto}\n`;
                             headerPedidos += `   📸 *Envía el comprobante de pago*\n`;
                         });
@@ -696,8 +697,8 @@ _O escribe *menu* para volver_`;
             telefono: userState.data.telefono || from,
             direccion: userState.data.direccion,
             metodoPago: 'Transferencia bancaria',
-            status: 'Pendiente verificación',
-            estado: 'Pendiente verificación',
+            status: ORDER_STATES.PENDING_VERIFICATION,  // Usar estado estándar
+            estado: ORDER_STATES.PENDING_VERIFICATION,  // Mantener ambos por compatibilidad
             comprobanteRecibido: true,
             esReorden: userState.data.esReorden || false,
             urlComprobante: mediaUrl || null,
@@ -752,7 +753,7 @@ _O escribe *menu* para volver_`;
 
 ━━━━━━━━━━━━━━━━━
 
-⏳ *ESTADO:* Pendiente de verificación
+⏳ *ESTADO:* ${ORDER_STATES.PENDING_VERIFICATION}
 
 🔍 *Próximos pasos:*
 1️⃣ Verificaremos tu pago (máx. 30 min)
@@ -792,6 +793,69 @@ Envía el número de tu elección`;
         if (hour < 12) return 'Buenos días';
         if (hour < 18) return 'Buenas tardes';
         return 'Buenas noches';
+    }
+    
+    /**
+     * Actualizar estado de pedido
+     */
+    async actualizarEstadoPedido(pedidoId, nuevoEstado, from = null) {
+        const pedido = stateManager.getConfirmedOrder(pedidoId);
+        
+        if (!pedido) {
+            console.error(`❌ No se encontró el pedido ${pedidoId}`);
+            return false;
+        }
+        
+        // Actualizar estado
+        const estadoAnterior = pedido.status || pedido.estado;
+        stateManager.updateOrderStatus(pedidoId, nuevoEstado);
+        
+        console.log(`🔄 Pedido ${pedidoId}: ${estadoAnterior} → ${nuevoEstado}`);
+        
+        // Si tenemos el número del cliente y el estado es "Pago confirmado", notificar
+        if (from || pedido.userId || pedido.telefono) {
+            const clientPhone = from || pedido.userId || pedido.telefono;
+            
+            if (nuevoEstado === ORDER_STATES.PAYMENT_CONFIRMED) {
+                const mensaje = `✅ *PAGO CONFIRMADO*\n\n` +
+                    `Tu pedido *${pedidoId}* ha sido verificado.\n` +
+                    `Estamos preparando tu pedido.\n\n` +
+                    `⏰ Entrega estimada: 24-48 horas\n\n` +
+                    `¡Gracias por tu compra! ☕`;
+                    
+                await messageService.sendMessage(clientPhone, mensaje);
+            } else if (nuevoEstado === ORDER_STATES.IN_PREPARATION) {
+                const mensaje = `🎆 *PEDIDO EN PREPARACIÓN*\n\n` +
+                    `Tu pedido *${pedidoId}* está siendo preparado.\n\n` +
+                    `Te avisaremos cuando esté listo.`;
+                    
+                await messageService.sendMessage(clientPhone, mensaje);
+            } else if (nuevoEstado === ORDER_STATES.ON_THE_WAY) {
+                const mensaje = `🚚 *PEDIDO EN CAMINO*\n\n` +
+                    `Tu pedido *${pedidoId}* está en camino.\n\n` +
+                    `Pronto llegará a tu dirección.`;
+                    
+                await messageService.sendMessage(clientPhone, mensaje);
+            } else if (nuevoEstado === ORDER_STATES.DELIVERED) {
+                const mensaje = `✅ *PEDIDO ENTREGADO*\n\n` +
+                    `Tu pedido *${pedidoId}* ha sido entregado.\n\n` +
+                    `¡Gracias por tu compra! ☕\n` +
+                    `Esperamos verte pronto.`;
+                    
+                await messageService.sendMessage(clientPhone, mensaje);
+            }
+        }
+        
+        // Actualizar en Sheets si está disponible
+        if (this.sheetsService) {
+            try {
+                await this.sheetsService.updateOrderStatus(pedidoId, nuevoEstado);
+            } catch (error) {
+                console.error('Error actualizando estado en Sheets:', error);
+            }
+        }
+        
+        return true;
     }
     
     /**
