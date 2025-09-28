@@ -16,17 +16,23 @@ async function agregarPedidoCorregido(googleSheets, datosPedido) {
         
         // Extraer nombre y teléfono del contacto si vienen combinados
         let nombreContacto = datosPedido.contacto || '';
-        let telefonoContacto = datosPedido.telefono || '';
+        let telefonoContacto = datosPedido.telefonoContacto || '';
         
         if (datosPedido.contacto && datosPedido.contacto.includes(' - ')) {
             const partes = datosPedido.contacto.split(' - ');
             nombreContacto = partes[0] || '';
-            telefonoContacto = partes[1] || datosPedido.telefono || '';
+            telefonoContacto = partes[1] || datosPedido.telefonoContacto || '';
         }
         
-        // Normalizar teléfono de WhatsApp
-        const whatsappNormalizado = datosPedido.telefono ? 
-            datosPedido.telefono.replace('whatsapp:', '').replace(/[^0-9+]/g, '') : '';
+        // IMPORTANTE: El Usuario WhatsApp es SIEMPRE el número de la sesión (from)
+        // No importa qué teléfono ingrese el cliente en el chat
+        const whatsappSesion = datosPedido.whatsappSesion || datosPedido.telefono || '';
+        const whatsappNormalizado = whatsappSesion
+            .replace('whatsapp:', '')
+            .replace(/[^0-9+]/g, '');
+        
+        console.log('📱 WhatsApp de sesión (from):', whatsappNormalizado);
+        console.log('📞 Teléfono de contacto ingresado:', telefonoContacto);
         
         // IMPORTANTE: Array de valores en el ORDEN CORRECTO de columnas
         const values = [[
@@ -35,7 +41,7 @@ async function agregarPedidoCorregido(googleSheets, datosPedido) {
             horaStr,                                                           // C: Hora
             datosPedido.empresa || datosPedido.cafeteria || datosPedido.nombreNegocio || '', // D: Empresa
             nombreContacto,                                                    // E: Contacto
-            telefonoContacto,                                                  // F: Telefono
+            telefonoContacto || '',                                           // F: Telefono (el que ingresa el cliente)
             datosPedido.direccion || '',                                      // G: Direccion
             datosPedido.producto?.nombre || '',                               // H: Producto
             datosPedido.cantidad || 0,                                        // I: Cantidad_kg
@@ -49,19 +55,18 @@ async function agregarPedidoCorregido(googleSheets, datosPedido) {
             datosPedido.observaciones || datosPedido.comprobanteRecibido ? 'Comprobante recibido' : '', // Q: Observaciones
             datosPedido.esReorden ? 'Reorden' : 'Nuevo',                     // R: Tipo_Pedido
             '',                                                                // S: ID_Cliente (se llenará después)
-            whatsappNormalizado                                               // T: Usuario_WhatsApp
+            whatsappNormalizado                                               // T: Usuario_WhatsApp (SIEMPRE el from)
         ]];
 
         console.log('📝 Guardando pedido en Sheets:');
         console.log('   ID:', values[0][0]);
-        console.log('   Fecha:', values[0][1], values[0][2]);
         console.log('   Empresa:', values[0][3]);
         console.log('   Contacto:', values[0][4]);
+        console.log('   Teléfono contacto:', values[0][5]);
         console.log('   Producto:', values[0][7]);
-        console.log('   Cantidad:', values[0][8], 'kg');
         console.log('   Total: S/', values[0][12]);
         console.log('   Estado:', values[0][14]);
-        console.log('   WhatsApp:', values[0][19]);
+        console.log('   Usuario WhatsApp (sesión):', values[0][19]);
 
         // Agregar a la hoja PedidosWhatsApp
         const response = await googleSheets.sheets.spreadsheets.values.append({
@@ -79,10 +84,10 @@ async function agregarPedidoCorregido(googleSheets, datosPedido) {
         // Intentar guardar/actualizar cliente (sin bloquear si falla)
         try {
             await guardarClienteEnSheets(googleSheets, {
-                whatsapp: datosPedido.telefono,
+                whatsapp: whatsappSesion, // Usar el WhatsApp de la sesión
                 empresa: datosPedido.empresa || datosPedido.cafeteria || datosPedido.nombreNegocio,
                 contacto: nombreContacto,
-                telefonoContacto: telefonoContacto,
+                telefonoContacto: telefonoContacto || '',
                 direccion: datosPedido.direccion,
                 totalPedido: datosPedido.total,
                 cantidadKg: datosPedido.cantidad

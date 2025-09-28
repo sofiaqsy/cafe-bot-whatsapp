@@ -9,6 +9,15 @@ const {
     actualizarEstadoPedidoEnSheets 
 } = require('./sheets-funciones-corregidas');
 
+// Importar funciones para leer datos de Sheets
+const {
+    buscarClienteEnSheets,
+    obtenerPedidosActivosDesdeSheets,
+    generarMenuConPedidos,
+    verificarHistorialCliente,
+    obtenerUltimoPedidoCliente
+} = require('./sheets-lectura-datos');
+
 dotenv.config();
 
 const app = express();
@@ -335,10 +344,6 @@ async function manejarMensaje(from, body) {
         // Flujo principal
         switch (userState.step) {
             case 'inicio':
-                // Verificar pedidos pendientes
-                const pedidosPendientesInicio = obtenerPedidosPendientes(from);
-                const tieneHistorialInicio = obtenerHistorialPedidos(from).length > 0;
-                
                 // Acceso directo con números
                 if (['1', '2', '3', '4'].includes(mensaje)) {
                     userState.step = 'menu_principal';
@@ -351,7 +356,15 @@ async function manejarMensaje(from, body) {
                     mensaje.toLowerCase().includes('buenas') ||
                     mensaje.toLowerCase().includes('buenos')) {
                     
-                    respuesta = obtenerMenu(userState, pedidosPendientesInicio, tieneHistorialInicio);
+                    // Generar menú con pedidos activos desde Sheets
+                    if (sheetsConfigured && googleSheets && googleSheets.initialized) {
+                        respuesta = await generarMenuConPedidos(googleSheets, from, userState);
+                    } else {
+                        // Menú básico sin Sheets
+                        const pedidosPendientesInicio = obtenerPedidosPendientes(from);
+                        const tieneHistorialInicio = obtenerHistorialPedidos(from).length > 0;
+                        respuesta = obtenerMenu(userState, pedidosPendientesInicio, tieneHistorialInicio);
+                    }
                     userState.step = 'menu_principal';
                 } else {
                     respuesta = `Hola 👋
@@ -818,7 +831,8 @@ _Escribe *"listo"* o *"enviado"* para confirmar_
                                 id: pedidoId,
                                 empresa: userState.data.empresa,
                                 contacto: userState.data.contacto,
-                                telefono: userState.data.telefono || from,
+                                telefonoContacto: userState.data.telefono, // Teléfono que ingresó el cliente
+                                whatsappSesion: from, // IMPORTANTE: Usar el from de la sesión
                                 direccion: userState.data.direccion,
                                 producto: userState.data.producto,
                                 cantidad: userState.data.cantidad,
@@ -832,6 +846,8 @@ _Escribe *"listo"* o *"enviado"* para confirmar_
                                 comprobanteRecibido: true
                             });
                             console.log('✅ Pedido guardado correctamente en Google Sheets');
+                            console.log('📱 WhatsApp sesión (from):', from);
+                            console.log('📞 Teléfono ingresado:', userState.data.telefono);
                         } catch (error) {
                             console.error('⚠️ Error guardando en Google Sheets:', error.message);
                             // No fallar si Sheets tiene problemas
