@@ -164,9 +164,10 @@ class ServiceInitializer {
             // Inicializar el catálogo de productos con Google Sheets
             if (this.services.sheets) {
                 console.log('📦 Inicializando catálogo de productos...');
-                productCatalog.initialize(this.services.sheets);
-                // Esperar a que se cargue el catálogo inicial
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await productCatalog.initialize(this.services.sheets);
+                console.log('📦 Catálogo de productos cargado correctamente');
+            } else {
+                console.log('⚠️ Google Sheets no disponible para catálogo');
             }
             
             orderHandler.initialize(this.services);

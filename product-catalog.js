@@ -64,15 +64,15 @@ class ProductCatalog {
     /**
      * Inicializar con el servicio de Google Sheets
      */
-    initialize(sheetsService) {
+    async initialize(sheetsService) {
         console.log('📦 ProductCatalog.initialize() llamado');
         console.log(`   sheetsService recibido: ${sheetsService ? 'Sí' : 'No'}`);
         
         this.sheetsService = sheetsService;
         
-        // Cargar catálogo inicial
+        // Cargar catálogo inicial - ESPERAR a que termine
         console.log('   Cargando catálogo inicial...');
-        this.loadFromSheets();
+        await this.loadFromSheets();
         
         // Configurar actualización automática cada 5 minutos
         this.updateInterval = setInterval(() => {
@@ -81,6 +81,7 @@ class ProductCatalog {
         }, 5 * 60 * 1000);
         
         console.log('📦 ProductCatalog inicializado con Google Sheets');
+        console.log(`   Productos cargados: ${Object.keys(this.products).length}`);
     }
     
     /**
@@ -148,20 +149,39 @@ class ProductCatalog {
      */
     formatProductList() {
         const products = this.getAllProducts();
-        let message = '☕ *CATÁLOGO DE CAFÉ* ☕\n\n';
+        
+        console.log(`📦 formatProductList: ${products.length} productos disponibles`);
+        
+        if (products.length === 0) {
+            return `☕ *CATÁLOGO DE CAFÉ* ☕
+
+⚠️ No hay productos disponibles en este momento.
+
+_Por favor, inténtalo más tarde o contacta al administrador._`;
+        }
+        
+        let message = '☕ *CATÁLOGO DE CAFÉ* ☕
+
+';
         
         products.forEach(product => {
-            message += `*${product.numero}.* ${product.nombre}\n`;
-            message += `   📍 Origen: ${product.origen}\n`;
-            message += `   🎯 ${product.descripcion}\n`;
-            message += `   💰 Precio: S/${product.precio}/kg\n`;
+            message += `*${product.numero}.* ${product.nombre}
+`;
+            message += `   📍 Origen: ${product.origen}
+`;
+            message += `   🎯 ${product.descripcion}
+`;
+            message += `   💰 Precio: S/${product.precio}/kg
+`;
             
             // Mostrar stock si está disponible
             if (product.stock !== undefined && product.stock !== null) {
                 if (product.stock > 0) {
-                    message += `   📦 Stock: ${product.stock}kg disponibles\n`;
+                    message += `   📦 Stock: ${product.stock}kg disponibles
+`;
                 } else {
-                    message += `   ⚠️ *Agotado temporalmente*\n`;
+                    message += `   ⚠️ *Agotado temporalmente*
+`;
                 }
             }
             
