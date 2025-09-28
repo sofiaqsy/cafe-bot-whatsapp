@@ -1512,6 +1512,178 @@ app.post('/webhook', async (req, res) => {
     res.status(200).send('OK');
 });
 
+// ============================================
+// ENDPOINT PARA NOTIFICACIONES DE CAMBIO DE ESTADO
+// ============================================
+
+// Token secreto para validar webhooks desde Google Sheets
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'tu-token-secreto-seguro-2024';
+
+// Endpoint para recibir notificaciones de cambio de estado
+app.post('/webhook-estado', async (req, res) => {
+    try {
+        // Verificar autorización
+        const authHeader = req.headers.authorization;
+        if (!authHeader || authHeader !== `Bearer ${WEBHOOK_SECRET}`) {
+            console.log('⚠️ Intento de acceso no autorizado al webhook-estado');
+            return res.status(401).json({ error: 'No autorizado' });
+        }
+
+        const { tipo, pedido, estado, cliente, metadata } = req.body;
+
+        console.log('📊 Notificación de cambio de estado recibida:');
+        console.log(`   Pedido: ${pedido?.id}`);
+        console.log(`   Estado: ${estado?.anterior} → ${estado?.nuevo}`);
+        console.log(`   Cliente: ${cliente?.whatsapp}`);
+
+        // Validar datos requeridos
+        if (!pedido?.id || !estado?.nuevo || !cliente?.whatsapp) {
+            return res.status(400).json({ error: 'Datos incompletos' });
+        }
+
+        // Generar mensaje según el nuevo estado
+        const mensaje = generarMensajeEstadoNotificacion(pedido, estado.nuevo);
+
+        // Formatear número de WhatsApp
+        const numeroWhatsApp = cliente.whatsapp.startsWith('whatsapp:') ? 
+            cliente.whatsapp : `whatsapp:${cliente.whatsapp}`;
+
+        // Enviar notificación al cliente
+        if (twilioConfigured && client) {
+            try {
+                await client.messages.create({
+                    body: mensaje,
+                    from: TWILIO_PHONE_NUMBER,
+                    to: numeroWhatsApp
+                });
+
+                console.log(`✅ Notificación de estado enviada a ${numeroWhatsApp}`);
+                res.status(200).json({ 
+                    success: true, 
+                    message: 'Notificación enviada',
+                    pedido: pedido.id 
+                });
+
+            } catch (error) {
+                console.error('❌ Error enviando notificación:', error.message);
+                res.status(500).json({ 
+                    error: 'Error enviando notificación',
+                    details: error.message 
+                });
+            }
+        } else {
+            // Modo desarrollo
+            console.log('📱 MODO DEV - Notificación que se enviaría:');
+            console.log(mensaje);
+            res.status(200).json({ 
+                success: true, 
+                message: 'Notificación simulada (modo dev)',
+                pedido: pedido.id 
+            });
+        }
+
+    } catch (error) {
+        console.error('❌ Error en webhook-estado:', error);
+        res.status(500).json({ 
+            error: 'Error procesando webhook',
+            details: error.message 
+        });
+    }
+});
+
+// Función para generar mensajes de notificación de estado
+function generarMensajeEstadoNotificacion(pedido, nuevoEstado) {
+    const { id, empresa, producto, cantidad } = pedido;
+    
+    const mensajes = {
+        'Pago verificado ✅': `✅ *¡PAGO CONFIRMADO!*
+━━━━━━━━━━━━━━━━━
+
+Tu pedido *${id}* ha sido verificado exitosamente.
+
+📦 *Detalles:*
+• ${producto}
+• Cantidad: ${cantidad}kg
+• Cliente: ${empresa}
+
+⏱️ *Próximos pasos:*
+Procederemos con la preparación de tu pedido.
+
+Tiempo estimado: 24-48 horas
+
+¡Gracias por tu confianza! ☕`,
+        
+        'En preparación': `👨‍🍳 *PEDIDO EN PREPARACIÓN*
+━━━━━━━━━━━━━━━━━
+
+Tu pedido *${id}* está siendo preparado.
+
+📦 ${producto} - ${cantidad}kg
+
+Nuestro equipo está seleccionando los mejores granos para ti.
+
+⏱️ Te notificaremos cuando esté listo para envío.`,
+        
+        'En camino': `🚚 *¡PEDIDO EN CAMINO!*
+━━━━━━━━━━━━━━━━━
+
+Tu pedido *${id}* está en ruta.
+
+📦 ${producto} - ${cantidad}kg
+📍 Dirección de entrega registrada
+
+El repartidor se comunicará contigo al llegar.
+
+⏱️ Tiempo estimado: 2-4 horas
+
+¡Prepara tu cafetera! ☕`,
+        
+        'Entregado': `✅ *PEDIDO ENTREGADO*
+━━━━━━━━━━━━━━━━━
+
+Tu pedido *${id}* ha sido entregado exitosamente.
+
+📦 ${producto} - ${cantidad}kg
+
+¡Esperamos que disfrutes tu café! ☕
+
+⭐ *Tu opinión es importante*
+¿Cómo fue tu experiencia?
+Responde a este mensaje con tu comentario.
+
+¡Gracias por tu preferencia!`,
+        
+        'Completado': `✅ *PEDIDO COMPLETADO*
+━━━━━━━━━━━━━━━━━
+
+Tu pedido *${id}* ha sido completado.
+
+¡Gracias por tu compra!
+
+Para nuevos pedidos, escribe *hola* 👋`,
+        
+        'Cancelado': `❌ *PEDIDO CANCELADO*
+━━━━━━━━━━━━━━━━━
+
+Tu pedido *${id}* ha sido cancelado.
+
+Si tienes alguna consulta, contáctanos.
+
+Para realizar un nuevo pedido, escribe *hola* 👋`
+    };
+
+    return mensajes[nuevoEstado] || `📦 *ACTUALIZACIÓN DE PEDIDO*
+━━━━━━━━━━━━━━━━━
+
+Pedido: *${id}*
+Nuevo estado: *${nuevoEstado}*
+
+${producto ? `Producto: ${producto}` : ''}
+${cantidad ? `Cantidad: ${cantidad}kg` : ''}
+
+Para más información, escribe *2* y luego tu código de pedido.`;
+}
+
 // Panel admin
 app.get('/admin', (req, res) => {
     const pedidos = Array.from(pedidosConfirmados.values());
