@@ -205,18 +205,31 @@ async function generarMenuConPedidos(googleSheets, telefono, userState) {
         headerPedidos += `━━━━━━━━━━━━━━━━━\n\n`;
         
         pedidosActivos.forEach(p => {
-            // Calcular tiempo transcurrido
+            // Calcular tiempo transcurrido con validación
             const ahora = new Date();
-            const tiempoMs = ahora - p.fecha;
-            const minutos = Math.floor(tiempoMs / (1000 * 60));
+            let tiempoTexto = 'Reciente';
             
-            let tiempoTexto = '';
-            if (minutos < 60) {
-                tiempoTexto = `${minutos} min`;
-            } else if (minutos < 1440) {
-                tiempoTexto = `${Math.floor(minutos/60)} horas`;
+            // Validar que p.fecha sea una fecha válida
+            if (p.fecha && !isNaN(p.fecha.getTime())) {
+                const tiempoMs = ahora - p.fecha;
+                const minutos = Math.floor(tiempoMs / (1000 * 60));
+                
+                if (minutos < 0) {
+                    tiempoTexto = 'Reciente';
+                } else if (minutos === 0) {
+                    tiempoTexto = 'Ahora';
+                } else if (minutos < 60) {
+                    tiempoTexto = `${minutos} min`;
+                } else if (minutos < 1440) {
+                    const horas = Math.floor(minutos / 60);
+                    tiempoTexto = `${horas} ${horas === 1 ? 'hora' : 'horas'}`;
+                } else {
+                    const dias = Math.floor(minutos / 1440);
+                    tiempoTexto = `${dias} ${dias === 1 ? 'día' : 'días'}`;
+                }
             } else {
-                tiempoTexto = `${Math.floor(minutos/1440)} días`;
+                // Si no hay fecha válida, mostrar "Hoy"
+                tiempoTexto = 'Hoy';
             }
             
             // Determinar ícono según estado
