@@ -683,6 +683,10 @@ _O escribe *menu* para volver_`;
      * Procesar comprobante
      */
     async procesarComprobante(from, userState, mediaUrl) {
+        console.log(`\n🎯 PROCESANDO COMPROBANTE`);
+        console.log(`   from (userId): ${from}`);
+        console.log(`   mediaUrl: ${mediaUrl ? 'Sí' : 'No'}`);
+        
         const pedidoId = userState.data.pedidoTempId || 'CAF-' + Date.now().toString().slice(-6);
         
         const pedidoCompleto = {
@@ -694,16 +698,22 @@ _O escribe *menu* para volver_`;
             total: userState.data.total,
             empresa: userState.data.empresa,
             contacto: userState.data.contacto,
-            telefono: userState.data.telefono || from,
+            telefono: userState.data.telefono || from,  // Teléfono que ingresó el cliente
             direccion: userState.data.direccion,
             metodoPago: 'Transferencia bancaria',
-            status: ORDER_STATES.PENDING_VERIFICATION,  // Usar estado estándar
-            estado: ORDER_STATES.PENDING_VERIFICATION,  // Mantener ambos por compatibilidad
+            status: ORDER_STATES.PENDING_VERIFICATION,
+            estado: ORDER_STATES.PENDING_VERIFICATION,
             comprobanteRecibido: true,
             esReorden: userState.data.esReorden || false,
             urlComprobante: mediaUrl || null,
-            userId: from
+            userId: from  // IMPORTANTE: El from de WhatsApp es el userId
         };
+        
+        console.log(`   Pedido a guardar:`);
+        console.log(`     ID: ${pedidoCompleto.id}`);
+        console.log(`     userId: ${pedidoCompleto.userId}`);
+        console.log(`     telefono: ${pedidoCompleto.telefono}`);
+        console.log(`     empresa: ${pedidoCompleto.empresa}`);
         
         // Guardar pedido
         stateManager.addConfirmedOrder(pedidoId, pedidoCompleto);

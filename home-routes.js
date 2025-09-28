@@ -517,4 +517,72 @@ router.get('/debug/orders', (req, res) => {
     stateManager.debugShowAllOrders();
 });
 
+/**
+ * GET /debug/test-order
+ * Crear un pedido de prueba
+ */
+router.get('/debug/test-order', (req, res) => {
+    const testUserId = req.query.user || 'whatsapp:+51936934501';
+    const testOrderId = 'TEST-' + Date.now().toString().slice(-6);
+    
+    const testOrder = {
+        id: testOrderId,
+        userId: testUserId,
+        telefono: testUserId,
+        fecha: new Date(),
+        timestamp: new Date(),
+        producto: {
+            nombre: 'Café Arábica Premium (TEST)',
+            precio: 50
+        },
+        cantidad: 10,
+        total: 500,
+        empresa: 'Empresa de Prueba',
+        contacto: 'Contacto Test',
+        direccion: 'Dirección de prueba',
+        status: 'Pendiente verificación',
+        estado: 'Pendiente verificación',
+        comprobanteRecibido: false
+    };
+    
+    stateManager.addConfirmedOrder(testOrderId, testOrder);
+    
+    // Buscar inmediatamente
+    const found = stateManager.getUserOrders(testUserId);
+    
+    res.json({
+        message: 'Pedido de prueba creado',
+        orderId: testOrderId,
+        userId: testUserId,
+        orderCreated: testOrder,
+        searchResult: {
+            found: found.length > 0,
+            ordersFound: found.length,
+            details: found
+        }
+    });
+});
+
+/**
+ * GET /debug/search
+ * Buscar pedidos de un usuario
+ */
+router.get('/debug/search/:userId', (req, res) => {
+    const userId = decodeURIComponent(req.params.userId);
+    const orders = stateManager.getUserOrders(userId);
+    const pendingOrders = stateManager.getPendingOrders(userId);
+    
+    res.json({
+        userId: userId,
+        totalOrders: orders.length,
+        pendingOrders: pendingOrders.length,
+        orders: orders.map(o => ({
+            id: o.id,
+            estado: o.status || o.estado,
+            total: o.total,
+            fecha: o.timestamp || o.fecha
+        }))
+    });
+});
+
 module.exports = router;

@@ -102,16 +102,30 @@ class StateManager {
         // Usar el estado estándar de Google Sheets
         const defaultStatus = orderData.status || orderData.estado || ORDER_STATES.PENDING_VERIFICATION;
         
-        this.confirmedOrders.set(orderId, {
+        // Asegurar que tenemos el userId
+        const orderToSave = {
             ...orderData,
             timestamp: orderData.timestamp || new Date(),
             status: defaultStatus,
-            estado: defaultStatus // Mantener ambos por compatibilidad
-        });
+            estado: defaultStatus, // Mantener ambos por compatibilidad
+            userId: orderData.userId || orderData.telefono // Asegurar userId
+        };
         
-        console.log(`📦 Pedido guardado: ${orderId}`);
+        this.confirmedOrders.set(orderId, orderToSave);
+        
+        console.log(`\n📦 === GUARDANDO PEDIDO ===`);
+        console.log(`   ID: ${orderId}`);
         console.log(`   Estado: ${defaultStatus}`);
-        console.log(`   Usuario: ${orderData.userId || orderData.telefono}`);
+        console.log(`   userId: ${orderToSave.userId}`);
+        console.log(`   telefono: ${orderToSave.telefono || 'N/A'}`);
+        console.log(`   empresa: ${orderToSave.empresa || 'N/A'}`);
+        console.log(`   total: ${orderToSave.total || 0}`);
+        console.log(`   Pedidos totales en memoria: ${this.confirmedOrders.size}`);
+        console.log(`========================\n`);
+        
+        // Verificar inmediatamente si se puede encontrar
+        const testFind = this.getUserOrders(orderToSave.userId);
+        console.log(`   Prueba de búsqueda inmediata: ${testFind.length > 0 ? '✅ Encontrado' : '❌ No encontrado'}`);
     }
     
     /**
@@ -135,34 +149,65 @@ class StateManager {
     }
     
     /**
+     * Normalize phone number for comparison
+     */
+    normalizePhone(phone) {
+        if (!phone) return '';
+        // Eliminar todos los caracteres no numéricos
+        return phone.replace(/[^0-9]/g, '');
+    }
+    
+    /**
      * Get user orders
      */
     getUserOrders(userId) {
         const orders = [];
         
-        // Limpiar el userId para comparación
-        const cleanUserId = userId.replace('whatsapp:', '').replace('+', '');
+        // Normalizar el userId entrante
+        const normalizedUserId = this.normalizePhone(userId);
         
-        this.confirmedOrders.forEach((order, orderId) => {
-            // Limpiar los teléfonos para comparación
-            const orderPhone = (order.telefono || '').replace('whatsapp:', '').replace('+', '');
-            const orderUserId = (order.userId || '').replace('whatsapp:', '').replace('+', '');
-            
-            // Comparar ambos campos
-            if (orderUserId.includes(cleanUserId) || 
-                cleanUserId.includes(orderUserId) ||
-                orderPhone.includes(cleanUserId) || 
-                cleanUserId.includes(orderPhone) ||
-                order.userId === userId || 
-                order.telefono === userId) {
-                orders.push({ ...order, id: orderId });
-            }
+        console.log(`\n🔍 DEBUG - Buscando pedidos`);
+        console.log(`   userId original: ${userId}`);
+        console.log(`   userId normalizado: ${normalizedUserId}`);
+        console.log(`   Total de pedidos en memoria: ${this.confirmedOrders.size}`);
+        
+        // Mostrar todos los pedidos para debug
+        if (this.confirmedOrders.size > 0) {
+            console.log('   \nPedidos existentes:');
+            this.confirmedOrders.forEach((order, orderId) => {
+                const orderUserIdNorm = this.normalizePhone(order.userId);
+                const orderPhoneNorm = this.normalizePhone(order.telefono);
+                
+                console.log(`   \n   Pedido ${orderId}:`);
+                console.log(`     userId: '${order.userId}' -> norm: '${orderUserIdNorm}'`);
+                console.log(`     telefono: '${order.telefono}' -> norm: '${orderPhoneNorm}'`);
+                console.log(`     estado: ${order.status || order.estado}`);
+                
+                // Comparación simplificada: solo números
+                const isMatch = (normalizedUserId && 
+                    (orderUserIdNorm === normalizedUserId || 
+                     orderPhoneNorm === normalizedUserId ||
+                     (orderUserIdNorm && orderUserIdNorm.includes(normalizedUserId)) ||
+                     (orderPhoneNorm && orderPhoneNorm.includes(normalizedUserId))));
+                
+                if (isMatch) {
+                    console.log(`     ✅ MATCH! Agregando este pedido`);
+                    orders.push({ ...order, id: orderId });
+                } else {
+                    console.log(`     ❌ No coincide (${normalizedUserId} vs ${orderUserIdNorm}/${orderPhoneNorm})`);
+                }
+            });
+        } else {
+            console.log('   ⚠️ No hay pedidos en memoria');
+        }
+        
+        console.log(`\n📊 Resultado final: ${orders.length} pedidos encontrados\n`);
+        
+        return orders.sort((a, b) => {
+            const dateA = a.timestamp || a.fecha || 0;
+            const dateB = b.timestamp || b.fecha || 0;
+            return dateB - dateA;
         });
-        
-        console.log(`🔍 Buscando pedidos para: ${userId}`);
-        console.log(`   Encontrados: ${orders.length} pedidos`);
-        
-        return orders.sort((a, b) => (b.timestamp || b.fecha) - (a.timestamp || a.fecha));
     }
     
     /**
