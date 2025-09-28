@@ -205,25 +205,29 @@ async function generarMenuConPedidos(googleSheets, telefono, userState) {
         headerPedidos += `━━━━━━━━━━━━━━━━━\n\n`;
         
         pedidosActivos.forEach(p => {
-            // Calcular tiempo transcurrido con validación
-            const ahora = new Date();
-            let tiempoTexto = 'Reciente';
+            // Calcular tiempo transcurrido correctamente
+            let tiempoTexto = '';
             
             // Validar que p.fecha sea una fecha válida
             if (p.fecha && !isNaN(p.fecha.getTime())) {
+                const ahora = new Date();
                 const tiempoMs = ahora - p.fecha;
                 const minutos = Math.floor(tiempoMs / (1000 * 60));
                 
+                // Si es negativo (fecha futura), mostrar "Reciente"
                 if (minutos < 0) {
                     tiempoTexto = 'Reciente';
                 } else if (minutos === 0) {
-                    tiempoTexto = 'Ahora';
+                    tiempoTexto = 'Ahora mismo';
                 } else if (minutos < 60) {
-                    tiempoTexto = `${minutos} min`;
+                    // Mostrar minutos
+                    tiempoTexto = `${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`;
                 } else if (minutos < 1440) {
+                    // Mostrar horas
                     const horas = Math.floor(minutos / 60);
                     tiempoTexto = `${horas} ${horas === 1 ? 'hora' : 'horas'}`;
                 } else {
+                    // Mostrar días
                     const dias = Math.floor(minutos / 1440);
                     tiempoTexto = `${dias} ${dias === 1 ? 'día' : 'días'}`;
                 }
@@ -254,7 +258,13 @@ async function generarMenuConPedidos(googleSheets, telefono, userState) {
             headerPedidos += `   ${p.producto}\n`;
             headerPedidos += `   ${p.cantidad}kg - S/${p.total.toFixed(2)}\n`;
             headerPedidos += `   Estado: *${textoEstado}*\n`;
-            headerPedidos += `   ⏱️ Hace ${tiempoTexto}\n\n`;
+            
+            // Mostrar tiempo con "Hace" solo cuando corresponde
+            if (tiempoTexto === 'Ahora mismo' || tiempoTexto === 'Reciente' || tiempoTexto === 'Hoy') {
+                headerPedidos += `   ⏱️ ${tiempoTexto}\n\n`;
+            } else {
+                headerPedidos += `   ⏱️ Hace ${tiempoTexto}\n\n`;
+            }
         });
         
         headerPedidos += `💡 _Usa el código para consultar detalles_\n`;
