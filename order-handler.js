@@ -35,10 +35,14 @@ class OrderHandler {
         const mensaje = body.trim();
         let userState = stateManager.getUserState(from);
         
-        // Obtener el objeto completo del estado (step + data)
+        // Obtener el objeto completo del estado (step + data) - Asegurar que siempre tenga data
         let fullState = stateManager.getTempOrder(from) || { step: 'inicio', data: {} };
         if (typeof userState === 'string') {
             fullState.step = userState;
+        }
+        // Asegurar que siempre existe fullState.data
+        if (!fullState.data) {
+            fullState.data = {};
         }
         
         // Add to history
@@ -163,6 +167,10 @@ O envía directamente:
                 
                 switch (mensaje) {
                     case '1':
+                        // Asegurar que fullState.data existe antes de mostrar el catálogo
+                        if (!fullState.data) {
+                            fullState.data = {};
+                        }
                         respuesta = this.mostrarCatalogo(fullState);
                         fullState.step = 'seleccion_producto';
                         break;
@@ -225,8 +233,13 @@ Escribe *menu* para volver`;
             case 'seleccion_producto':
                 const producto = productCatalog.getProduct(mensaje);
                 if (producto) {
+                    // Asegurar que fullState.data existe
+                    if (!fullState.data) {
+                        fullState.data = {};
+                    }
+                    
                     let mensajeCambio = '';
-                    if (fullState.data && fullState.data.producto && fullState.data.producto.id !== producto.id) {
+                    if (fullState.data.producto && fullState.data.producto.id !== producto.id) {
                         mensajeCambio = `_Cambiando de ${fullState.data.producto.nombre} a ${producto.nombre}_\n\n`;
                     }
                     
