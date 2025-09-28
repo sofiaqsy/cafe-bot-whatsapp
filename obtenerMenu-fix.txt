@@ -1,0 +1,88 @@
+    /**
+     * Obtener menú con pedidos activos
+     */
+    obtenerMenu(userState, pedidosActivos, tieneHistorial) {
+        let headerPedidos = '';
+        
+        // Mostrar pedidos activos si existen
+        if (pedidosActivos && pedidosActivos.length > 0) {
+            headerPedidos = `*TUS PEDIDOS ACTIVOS:*\n`;
+            headerPedidos += `━━━━━━━━━━━━━━━━━\n`;
+            
+            pedidosActivos.forEach(p => {
+                // Calcular tiempo transcurrido de forma segura
+                let tiempoTexto = 'Hoy';
+                
+                try {
+                    const fechaPedido = p.timestamp || p.fecha;
+                    if (fechaPedido) {
+                        const fecha = new Date(fechaPedido);
+                        const ahora = new Date();
+                        
+                        if (!isNaN(fecha.getTime())) {
+                            const tiempoMs = ahora - fecha;
+                            const minutos = Math.floor(tiempoMs / (1000 * 60));
+                            
+                            if (minutos < 0) {
+                                tiempoTexto = 'Reciente';
+                            } else if (minutos < 60) {
+                                tiempoTexto = `${minutos} min`;
+                            } else if (minutos < 1440) {
+                                const horas = Math.floor(minutos / 60);
+                                tiempoTexto = `${horas} ${horas === 1 ? 'hora' : 'horas'}`;
+                            } else {
+                                const dias = Math.floor(minutos / 1440);
+                                tiempoTexto = `${dias} ${dias === 1 ? 'día' : 'días'}`;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    tiempoTexto = 'Hoy';
+                }
+                
+                // Obtener el nombre del producto correctamente
+                let nombreProducto = 'Producto';
+                if (typeof p.producto === 'string') {
+                    nombreProducto = p.producto;
+                } else if (p.producto && p.producto.nombre) {
+                    nombreProducto = p.producto.nombre;
+                }
+                
+                // Formatear el pedido sin emojis excesivos
+                headerPedidos += `\n*${p.id}*\n`;
+                headerPedidos += `${nombreProducto}\n`;
+                headerPedidos += `${p.cantidad}kg - S/${(p.total || 0).toFixed(2)}\n`;
+                headerPedidos += `Estado: *${p.estado}*\n`;
+                headerPedidos += `Hace ${tiempoTexto}\n`;
+            });
+            
+            headerPedidos += `\n_Usa el código para consultar detalles_\n`;
+            headerPedidos += `━━━━━━━━━━━━━━━━━\n\n`;
+        }
+        
+        // Si hay un pedido en proceso (aún no confirmado), mostrarlo
+        if (userState.data && userState.data.producto) {
+            const cantidadStr = userState.data.cantidad ? `${userState.data.cantidad}kg` : 'cantidad por definir';
+            const totalStr = userState.data.total ? `S/${userState.data.total.toFixed(2)}` : 'por calcular';
+            
+            headerPedidos += `*PEDIDO ACTUAL (sin confirmar)*\n`;
+            headerPedidos += `━━━━━━━━━━━━━━━━━\n`;
+            headerPedidos += `${userState.data.producto.nombre}\n`;
+            headerPedidos += `Cantidad: ${cantidadStr}\n`;
+            headerPedidos += `Total: ${totalStr}\n`;
+            headerPedidos += `━━━━━━━━━━━━━━━━━\n\n`;
+            headerPedidos += `_Escribe *cancelar* para eliminar_\n\n`;
+        }
+        
+        // Agregar opción de reordenar si tiene historial
+        const opcionReordenar = tieneHistorial ? 
+            `*4* - Volver a pedir\n` : '';
+        
+        return `${headerPedidos}*MENÚ PRINCIPAL*
+
+*1* - Ver catálogo y pedir
+*2* - Consultar pedido
+*3* - Información del negocio
+${opcionReordenar}
+Envía el número de tu elección`;
+    }
