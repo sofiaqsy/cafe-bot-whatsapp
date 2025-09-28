@@ -2,6 +2,13 @@ const express = require('express');
 const dotenv = require('dotenv');
 const path = require('path');
 
+// Importar funciones corregidas para Google Sheets
+const { 
+    agregarPedidoCorregido,
+    guardarClienteEnSheets,
+    actualizarEstadoPedidoEnSheets 
+} = require('./sheets-funciones-corregidas');
+
 dotenv.config();
 
 const app = express();
@@ -806,25 +813,28 @@ _Escribe *"listo"* o *"enviado"* para confirmar_
                     // Guardar en Google Sheets si está configurado
                     if (sheetsConfigured && googleSheets && googleSheets.initialized) {
                         try {
-                            await googleSheets.agregarPedido({
+                            // Usar la función corregida con columnas en orden correcto
+                            await agregarPedidoCorregido(googleSheets, {
                                 id: pedidoId,
-                                nombreNegocio: userState.data.empresa,
-                                cafeteria: userState.data.empresa,
+                                empresa: userState.data.empresa,
+                                contacto: userState.data.contacto,
+                                telefono: userState.data.telefono || from,
+                                direccion: userState.data.direccion,
                                 producto: userState.data.producto,
                                 cantidad: userState.data.cantidad,
-                                subtotal: userState.data.total,
-                                descuento: 0,
                                 total: userState.data.total,
-                                direccion: userState.data.direccion,
-                                contacto: `${userState.data.contacto} - ${userState.data.telefono}`,
-                                telefono: from,
+                                subtotal: userState.data.total,
                                 metodoPago: 'Transferencia bancaria',
-                                observaciones: `Comprobante recibido - Pendiente verificación${userState.data.esReorden ? ' (REORDEN)' : ''}`,
-                                estado: 'Pendiente verificación'
+                                estado: 'Pendiente verificación',
+                                urlComprobante: userState.data.urlComprobante || '',
+                                observaciones: `Comprobante recibido${userState.data.esReorden ? ' - REORDEN' : ''}`,
+                                esReorden: userState.data.esReorden || false,
+                                comprobanteRecibido: true
                             });
-                            console.log('✅ Pedido guardado en Google Sheets');
+                            console.log('✅ Pedido guardado correctamente en Google Sheets');
                         } catch (error) {
                             console.error('⚠️ Error guardando en Google Sheets:', error.message);
+                            // No fallar si Sheets tiene problemas
                         }
                     }
 
@@ -933,6 +943,16 @@ _O escribe *cancelar* para cancelar el proceso_`;
                                         `¡Gracias por tu compra! ☕`
                                     );
                                     console.log(`✅ Cliente notificado: ${telefonoCliente}`);
+                                }
+                            }
+                            
+                            // Actualizar estado en Google Sheets
+                            if (sheetsConfigured && googleSheets && googleSheets.initialized) {
+                                try {
+                                    await actualizarEstadoPedidoEnSheets(googleSheets, pedidoId, 'Pago verificado ✅');
+                                    console.log('✅ Estado actualizado en Google Sheets');
+                                } catch (error) {
+                                    console.error('Error actualizando estado en Sheets:', error.message);
                                 }
                             }
                             
