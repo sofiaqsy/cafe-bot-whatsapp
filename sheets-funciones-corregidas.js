@@ -24,13 +24,23 @@ async function agregarPedidoCorregido(googleSheets, datosPedido) {
             telefonoContacto = partes[1] || datosPedido.telefonoContacto || '';
         }
         
-        // IMPORTANTE: El Usuario WhatsApp es SIEMPRE el número de la sesión (from)
-        // No importa qué teléfono ingrese el cliente en el chat
+        // IMPORTANTE: El Usuario WhatsApp debe incluir el +51
+        // Excel/Sheets puede agregar apóstrofe, lo manejamos
         const whatsappSesion = datosPedido.whatsappSesion || datosPedido.telefono || '';
-        const whatsappNormalizado = whatsappSesion
+        
+        // Normalizar: asegurar que tenga +51
+        let whatsappNormalizado = whatsappSesion
             .replace('whatsapp:', '')
-            .replace('+51', '') // IMPORTANTE: Quitar +51
-            .replace(/[^0-9]/g, ''); // Solo números
+            .replace(/[^0-9+]/g, ''); // Mantener el + y números
+        
+        // Si no tiene +51, agregarlo
+        if (!whatsappNormalizado.startsWith('+51')) {
+            if (whatsappNormalizado.startsWith('51')) {
+                whatsappNormalizado = '+' + whatsappNormalizado;
+            } else {
+                whatsappNormalizado = '+51' + whatsappNormalizado;
+            }
+        }
         
         console.log('📱 WhatsApp de sesión (from):', whatsappNormalizado);
         console.log('📞 Teléfono de contacto ingresado:', telefonoContacto);

@@ -1,4 +1,5 @@
-// Funciones para leer datos de Google Sheets y mejorar la experiencia del cliente
+// VERSIÓN CORREGIDA: Trabajando CON +51 en todos lados
+// Este archivo reemplaza sheets-lectura-datos.js
 
 // Función para buscar cliente existente en Sheets
 async function buscarClienteEnSheets(googleSheets, telefono) {
@@ -7,18 +8,26 @@ async function buscarClienteEnSheets(googleSheets, telefono) {
     }
     
     try {
-        // Normalizar teléfono
-        const telefonoNormalizado = telefono
+        // Normalizar teléfono para que siempre tenga +51
+        let telefonoNormalizado = telefono
             .replace('whatsapp:', '')
-            .replace('+51', '') // Quitar prefijo de Perú
-            .replace(/[^0-9]/g, ''); // Solo números
+            .replace(/[^0-9+]/g, '');
+        
+        // Asegurar formato +51
+        if (!telefonoNormalizado.startsWith('+51')) {
+            if (telefonoNormalizado.startsWith('51')) {
+                telefonoNormalizado = '+' + telefonoNormalizado;
+            } else {
+                telefonoNormalizado = '+51' + telefonoNormalizado;
+            }
+        }
         
         console.log(`🔍 Buscando cliente con WhatsApp: ${telefonoNormalizado}`);
         
         // Leer todos los clientes de la hoja
         const response = await googleSheets.sheets.spreadsheets.values.get({
             spreadsheetId: googleSheets.spreadsheetId,
-            range: 'Clientes!A:G' // Hasta columna G (Dirección)
+            range: 'Clientes!A:G'
         });
         
         if (!response.data.values || response.data.values.length <= 1) {
@@ -30,20 +39,31 @@ async function buscarClienteEnSheets(googleSheets, telefono) {
         const clientes = response.data.values;
         for (let i = 1; i < clientes.length; i++) {
             const row = clientes[i];
+            
             // Normalizar el WhatsApp guardado también
-            const whatsappCliente = row[1] ? 
-                row[1].replace('+51', '').replace(/[^0-9]/g, '') : '';
+            let whatsappCliente = String(row[1] || '')
+                .replace(/^'/, '') // Quitar apóstrofe si Excel lo agregó
+                .replace(/[^0-9+]/g, '');
+            
+            // Asegurar formato +51
+            if (!whatsappCliente.startsWith('+51')) {
+                if (whatsappCliente.startsWith('51')) {
+                    whatsappCliente = '+' + whatsappCliente;
+                } else if (whatsappCliente.length > 0) {
+                    whatsappCliente = '+51' + whatsappCliente;
+                }
+            }
             
             if (whatsappCliente === telefonoNormalizado) {
                 console.log(`✅ Cliente encontrado: ${row[2]} (${row[0]})`);
                 return {
-                    idCliente: row[0],          // A: ID_Cliente
-                    whatsapp: row[1],           // B: WhatsApp
-                    empresa: row[2],            // C: Empresa
-                    contacto: row[3],           // D: Nombre_Contacto
-                    telefono: row[4] || row[1], // E: Telefono_Contacto
-                    email: row[5] || '',        // F: Email
-                    direccion: row[6] || ''     // G: Direccion
+                    idCliente: row[0],
+                    whatsapp: row[1],
+                    empresa: row[2],
+                    contacto: row[3],
+                    telefono: row[4] || row[1],
+                    email: row[5] || '',
+                    direccion: row[6] || ''
                 };
             }
         }
@@ -63,39 +83,70 @@ async function obtenerPedidosActivosDesdeSheets(googleSheets, telefono) {
     }
     
     try {
-        // Normalizar teléfono
-        const telefonoNormalizado = telefono
+        // Normalizar teléfono para que siempre tenga +51
+        let telefonoNormalizado = telefono
             .replace('whatsapp:', '')
             .replace(/[^0-9+]/g, '');
+        
+        // Asegurar que tenga +51
+        if (!telefonoNormalizado.startsWith('+51')) {
+            if (telefonoNormalizado.startsWith('51')) {
+                telefonoNormalizado = '+' + telefonoNormalizado;
+            } else {
+                telefonoNormalizado = '+51' + telefonoNormalizado;
+            }
+        }
         
         console.log(`📦 Buscando pedidos activos para: ${telefonoNormalizado}`);
         
         // Leer todos los pedidos
         const response = await googleSheets.sheets.spreadsheets.values.get({
             spreadsheetId: googleSheets.spreadsheetId,
-            range: 'PedidosWhatsApp!A:T' // Todas las columnas
+            range: 'PedidosWhatsApp!A:T'
         });
         
         if (!response.data.values || response.data.values.length <= 1) {
+            console.log('📄 No hay datos en PedidosWhatsApp');
             return [];
         }
+        
+        console.log(`📄 Total filas en Sheets: ${response.data.values.length}`);
         
         // Filtrar pedidos del usuario
         const pedidos = response.data.values;
         const pedidosActivos = [];
+        let pedidosEncontrados = 0;
         
         for (let i = 1; i < pedidos.length; i++) {
             const row = pedidos[i];
-            // Normalizar el WhatsApp de la columna T también
-            const whatsappPedido = row[19] ? 
-                String(row[19])
-                    .replace(/^'/, '')  // Quitar apóstrofe inicial si existe
-                    .replace('+51', '') // Quitar prefijo
-                    .replace(/[^0-9]/g, '') : ''; // Solo números
+            
+            // Normalizar el WhatsApp de la columna T
+            // Excel/Sheets puede agregar apóstrofe al inicio
+            let whatsappPedido = String(row[19] || '')
+                .replace(/^'/, '')  // Quitar apóstrofe inicial
+                .replace(/[^0-9+]/g, ''); // Mantener + y números
+            
+            // Asegurar formato con +51
+            if (!whatsappPedido.startsWith('+51')) {
+                if (whatsappPedido.startsWith('51')) {
+                    whatsappPedido = '+' + whatsappPedido;
+                } else if (whatsappPedido.length > 0) {
+                    whatsappPedido = '+51' + whatsappPedido;
+                }
+            }
+            
             const estado = row[14] || ''; // Columna O
             
-            // Solo pedidos del usuario que NO estén completados/cancelados
+            // Debug primeras filas
+            if (i <= 3) {
+                console.log(`  Fila ${i}: WhatsApp='${whatsappPedido}' vs Buscando='${telefonoNormalizado}', Estado='${estado}'`);
+            }
+            
+            // Comparar números normalizados
             if (whatsappPedido === telefonoNormalizado) {
+                pedidosEncontrados++;
+                console.log(`✅ Pedido encontrado: ${row[0]} - Estado: ${estado}`);
+                
                 if (estado !== 'Completado' && 
                     estado !== 'Entregado' && 
                     estado !== 'Cancelado' &&
@@ -104,8 +155,8 @@ async function obtenerPedidosActivosDesdeSheets(googleSheets, telefono) {
                     // Parsear fecha y hora
                     let fechaCompleta = new Date();
                     try {
-                        const fechaStr = row[1]; // Columna B: Fecha
-                        const horaStr = row[2];  // Columna C: Hora
+                        const fechaStr = row[1];
+                        const horaStr = row[2];
                         if (fechaStr && horaStr) {
                             const [dia, mes, año] = fechaStr.split('/');
                             fechaCompleta = new Date(`${año}-${mes}-${dia} ${horaStr}`);
@@ -115,14 +166,16 @@ async function obtenerPedidosActivosDesdeSheets(googleSheets, telefono) {
                     }
                     
                     pedidosActivos.push({
-                        id: row[0],              // A: ID_Pedido
+                        id: row[0],
                         fecha: fechaCompleta,
-                        empresa: row[3],         // D: Empresa
-                        producto: row[7],        // H: Producto
-                        cantidad: parseFloat(row[8]) || 0,  // I: Cantidad_kg
-                        total: parseFloat(row[12]) || 0,    // M: Total
-                        estado: estado           // O: Estado
+                        empresa: row[3],
+                        producto: row[7],
+                        cantidad: parseFloat(row[8]) || 0,
+                        total: parseFloat(row[12]) || 0,
+                        estado: estado
                     });
+                    
+                    console.log(`  ➡️ Agregado a pedidos activos`);
                 }
             }
         }
@@ -130,11 +183,11 @@ async function obtenerPedidosActivosDesdeSheets(googleSheets, telefono) {
         // Ordenar por fecha más reciente primero
         pedidosActivos.sort((a, b) => b.fecha - a.fecha);
         
-        console.log(`📊 Pedidos activos encontrados: ${pedidosActivos.length}`);
+        console.log(`📦 Resultado: ${pedidosEncontrados} pedidos totales, ${pedidosActivos.length} activos`);
         return pedidosActivos;
         
     } catch (error) {
-        console.error('Error obteniendo pedidos:', error.message);
+        console.error('❌ Error obteniendo pedidos:', error.message);
         return [];
     }
 }
@@ -170,16 +223,16 @@ async function generarMenuConPedidos(googleSheets, telefono, userState) {
             let iconoEstado = '⏳';
             let textoEstado = p.estado;
             
-            if (p.estado.includes('verificado') || p.estado.includes('✅')) {
+            if (p.estado && (p.estado.includes('verificado') || p.estado.includes('✅'))) {
                 iconoEstado = '✅';
                 textoEstado = 'Pago verificado';
-            } else if (p.estado.includes('preparación')) {
+            } else if (p.estado && p.estado.includes('preparación')) {
                 iconoEstado = '👨‍🍳';
                 textoEstado = 'En preparación';
-            } else if (p.estado.includes('camino')) {
+            } else if (p.estado && p.estado.includes('camino')) {
                 iconoEstado = '🚚';
                 textoEstado = 'En camino';
-            } else if (p.estado.includes('Pendiente')) {
+            } else if (p.estado && p.estado.includes('Pendiente')) {
                 iconoEstado = '⏳';
                 textoEstado = 'Pendiente verificación';
             }
@@ -216,11 +269,6 @@ async function generarMenuConPedidos(googleSheets, telefono, userState) {
     menu += `*2* - Consultar pedido 📦\n`;
     menu += `*3* - Información del negocio ℹ️\n`;
     
-    // Verificar si tiene historial para mostrar opción 4
-    if (pedidosActivos.length > 0 || await verificarHistorialCliente(googleSheets, telefono)) {
-        menu += `*4* - Repetir pedido anterior 🔄\n`;
-    }
-    
     menu += `\nEnvía el número de tu elección`;
     
     return menu;
@@ -228,96 +276,14 @@ async function generarMenuConPedidos(googleSheets, telefono, userState) {
 
 // Función para verificar si tiene historial
 async function verificarHistorialCliente(googleSheets, telefono) {
-    if (!googleSheets || !googleSheets.initialized) {
-        return false;
-    }
-    
-    try {
-        const telefonoNormalizado = telefono
-            .replace('whatsapp:', '')
-            .replace(/[^0-9+]/g, '');
-        
-        const response = await googleSheets.sheets.spreadsheets.values.get({
-            spreadsheetId: googleSheets.spreadsheetId,
-            range: 'PedidosWhatsApp!T:T' // Solo columna Usuario WhatsApp
-        });
-        
-        if (!response.data.values || response.data.values.length <= 1) {
-            return false;
-        }
-        
-        // Buscar si existe al menos un pedido
-        return response.data.values.slice(1).some(row => {
-            const tel = row[0] ? row[0].replace(/[^0-9+]/g, '') : '';
-            return tel === telefonoNormalizado;
-        });
-    } catch (error) {
-        return false;
-    }
+    const pedidos = await obtenerPedidosActivosDesdeSheets(googleSheets, telefono);
+    return pedidos.length > 0;
 }
 
-// Función para obtener el último pedido del cliente
+// Función para obtener el último pedido
 async function obtenerUltimoPedidoCliente(googleSheets, telefono) {
-    if (!googleSheets || !googleSheets.initialized) {
-        return null;
-    }
-    
-    try {
-        const telefonoNormalizado = telefono
-            .replace('whatsapp:', '')
-            .replace(/[^0-9+]/g, '');
-        
-        const response = await googleSheets.sheets.spreadsheets.values.get({
-            spreadsheetId: googleSheets.spreadsheetId,
-            range: 'PedidosWhatsApp!A:T'
-        });
-        
-        if (!response.data.values || response.data.values.length <= 1) {
-            return null;
-        }
-        
-        const pedidos = response.data.values;
-        let ultimoPedido = null;
-        let fechaMasReciente = null;
-        
-        for (let i = 1; i < pedidos.length; i++) {
-            const row = pedidos[i];
-            const whatsappPedido = row[19] ? row[19].replace(/[^0-9+]/g, '') : '';
-            
-            if (whatsappPedido === telefonoNormalizado) {
-                const fechaStr = row[1];
-                const horaStr = row[2];
-                let fecha;
-                
-                try {
-                    const [dia, mes, año] = fechaStr.split('/');
-                    fecha = new Date(`${año}-${mes}-${dia} ${horaStr}`);
-                } catch (e) {
-                    fecha = new Date();
-                }
-                
-                if (!fechaMasReciente || fecha > fechaMasReciente) {
-                    fechaMasReciente = fecha;
-                    ultimoPedido = {
-                        id: row[0],
-                        empresa: row[3],
-                        contacto: row[4],
-                        telefono: row[5],
-                        direccion: row[6],
-                        producto: row[7],
-                        cantidad: parseFloat(row[8]) || 0,
-                        precio: parseFloat(row[9]) || 0,
-                        total: parseFloat(row[12]) || 0
-                    };
-                }
-            }
-        }
-        
-        return ultimoPedido;
-    } catch (error) {
-        console.error('Error obteniendo último pedido:', error.message);
-        return null;
-    }
+    const pedidos = await obtenerPedidosActivosDesdeSheets(googleSheets, telefono);
+    return pedidos.length > 0 ? pedidos[0] : null;
 }
 
 module.exports = {
