@@ -233,7 +233,74 @@ ${this.obtenerMenu(fullState, pedidosActivosMenu, tieneHistorialMenu, from)}`;
                         }
                         break;
                         
-                    default:
+                    case 'pedido_completado':
+                // Cualquier mensaje después de completar un pedido vuelve al menú
+                const todosLosPedidosCompleto = stateManager.getUserOrders(from);
+                const pedidosActivosCompleto = todosLosPedidosCompleto.filter(p => {
+                    const estado = p.estado || p.status || '';
+                    return estado !== 'Completado' && 
+                           estado !== 'Entregado' && 
+                           estado !== 'Cancelado';
+                });
+                const tieneHistorialCompleto = todosLosPedidosCompleto.length > 0;
+                
+                respuesta = this.obtenerMenu({ step: 'menu_principal', data: {} }, pedidosActivosCompleto, tieneHistorialCompleto, from);
+                fullState.step = 'menu_principal';
+                break;
+                
+            case 'info_mostrada':
+                // Después de mostrar información, cualquier mensaje vuelve al menú
+                const todosLosPedidosInfo = stateManager.getUserOrders(from);
+                const pedidosActivosInfo = todosLosPedidosInfo.filter(p => {
+                    const estado = p.estado || p.status || '';
+                    return estado !== 'Completado' && 
+                           estado !== 'Entregado' && 
+                           estado !== 'Cancelado';
+                });
+                const tieneHistorialInfo = todosLosPedidosInfo.length > 0;
+                
+                respuesta = this.obtenerMenu({ step: 'menu_principal', data: {} }, pedidosActivosInfo, tieneHistorialInfo, from);
+                fullState.step = 'menu_principal';
+                break;
+                
+            case 'consulta_pedido':
+                // Si escribe 'menu' o no es un código válido, volver al menú
+                if (mensaje.toLowerCase() === 'menu' || mensaje.toLowerCase() === 'menú') {
+                    return this.handleMessage(from, 'menu');
+                }
+                
+                // Buscar el pedido
+                const pedidoBuscado = stateManager.getConfirmedOrder(mensaje.toUpperCase());
+                
+                if (pedidoBuscado) {
+                    respuesta = `📦 *DETALLE DEL PEDIDO*
+━━━━━━━━━━━━━━━━━
+
+*Código:* ${pedidoBuscado.id}
+*Estado:* ${pedidoBuscado.estado || pedidoBuscado.status}
+*Fecha:* ${pedidoBuscado.fecha || 'Hoy'}
+
+*PRODUCTO:*
+${pedidoBuscado.producto?.nombre || 'Producto'}
+Cantidad: ${pedidoBuscado.cantidad}kg
+Total: ${this.formatearPrecio(pedidoBuscado.total)}
+
+*ENTREGA:*
+${pedidoBuscado.empresa}
+${pedidoBuscado.direccion}
+
+━━━━━━━━━━━━━━━━━
+
+_Escribe cualquier cosa para volver al menú_`;
+                    fullState.step = 'info_mostrada';
+                } else {
+                    respuesta = `❌ No se encontró el pedido *${mensaje}*
+
+Por favor, verifica el código e intenta nuevamente.
+
+_Escribe *menu* para volver al menú principal_`;
+                }
+                break;
                         // Incluir opción 5 si hay pedidos pendientes de pago
                         const opciones = pedidosPendientesPago.length > 0 ? 
                             `${tieneHistorialMenu ? '\n*4* - Volver a pedir' : ''}\n*5* - 💳 Enviar comprobante pendiente` : 
@@ -248,12 +315,20 @@ ${this.obtenerMenu(fullState, pedidosActivosMenu, tieneHistorialMenu, from)}`;
                 break;
                 
             case 'seleccion_producto':
+                // Inicializar contador de intentos si no existe
+                if (!fullState.data.intentosProducto) {
+                    fullState.data.intentosProducto = 0;
+                }
+                
                 const producto = productCatalog.getProduct(mensaje);
                 if (producto) {
                     // Asegurar que fullState.data existe
                     if (!fullState.data) {
                         fullState.data = {};
                     }
+                    
+                    // Resetear contador de intentos
+                    fullState.data.intentosProducto = 0;
                     
                     let mensajeCambio = '';
                     if (fullState.data.producto && fullState.data.producto.id !== producto.id) {
@@ -277,9 +352,18 @@ _Pedido mínimo: 5kg_`;
                 } else if (mensaje.toLowerCase() === 'menu' || mensaje.toLowerCase() === 'menú') {
                     return this.handleMessage(from, 'menu');
                 } else {
-                    respuesta = `Por favor, selecciona un producto válido (1-5)
-
-O escribe *menu* para volver al menú`;
+                    // Manejar intentos inválidos
+                    fullState.data.intentosProducto++;
+                    
+                    if (fullState.data.intentosProducto >= 3) {
+                        // Después de 3 intentos, volver al menú
+                        respuesta = `⚠️ *SELECCIÓN CANCELADA*\n\nNo se recibió una selección válida después de 3 intentos.\n\nVolviendo al menú principal...\n\n${this.obtenerMenu(fullState, [], false, from)}`;
+                        fullState.step = 'menu_principal';
+                        fullState.data = {};
+                    } else {
+                        const intentosRestantes = 3 - fullState.data.intentosProducto;
+                        respuesta = `❌ *OPCIÓN NO VÁLIDA*\n\n⚠️ *Intento ${fullState.data.intentosProducto} de 3*\nTe quedan ${intentosRestantes} intento${intentosRestantes > 1 ? 's' : ''}.\n\nPor favor, selecciona un producto válido (1-5)\n\nO escribe *menu* para volver al menú`;
+                    }
                 }
                 break;
                 
@@ -743,7 +827,7 @@ _Escribe *menu* para volver_`;
 
 Gracias por completar tu pago!
 
-_Escribe *menu* para volver al menú principal_`;
+_Escribe cualquier mensaje para volver al menú_`;
                     } else {
                         respuesta = `❌ Error al actualizar el pedido.
 
@@ -764,13 +848,19 @@ _O escribe *cancelar* para volver al menú_`;
                 break;
                 
             case 'esperando_comprobante':
+                // Inicializar contador de intentos si no existe
+                if (!fullState.data.intentosComprobante) {
+                    fullState.data.intentosComprobante = 0;
+                }
+                
                 // Si hay una imagen
                 if (mediaUrl) {
                     respuesta = await this.procesarComprobante(from, fullState, mediaUrl);
                     fullState = { step: 'pedido_completado', data: {} };
                 } 
-                // Si quiere enviar después
-                else if (mensaje.toLowerCase() === 'despues' || 
+                // Si quiere enviar después (opción 1 o palabras)
+                else if (mensaje === '1' ||
+                         mensaje.toLowerCase() === 'despues' || 
                          mensaje.toLowerCase() === 'después' ||
                          mensaje.toLowerCase() === 'luego' ||
                          mensaje.toLowerCase() === 'mas tarde' ||
@@ -779,41 +869,51 @@ _O escribe *cancelar* para volver al menú_`;
                     respuesta = await this.guardarPedidoPendientePago(from, fullState);
                     fullState = { step: 'menu_principal', data: {} };
                 }
-                // Si cancela
-                else if (mensaje.toLowerCase() === 'cancelar') {
+                // Si cancela (opción 2 o palabra)
+                else if (mensaje === '2' || mensaje.toLowerCase() === 'cancelar') {
                     fullState.data = {};
-                    respuesta = `Proceso de pago cancelado.
-
-*MENÚ PRINCIPAL*
-
-*1* - Ver catálogo
-*2* - Consultar pedido
-*3* - Información
-
-Envía el número de tu elección`;
+                    respuesta = `Proceso de pago cancelado.\n\n*MENÚ PRINCIPAL*\n\n*1* - Ver catálogo\n*2* - Consultar pedido\n*3* - Información\n\nEnvía el número de tu elección`;
                     fullState.step = 'menu_principal';
                 } 
-                // Si es confirmación por texto (para compatibilidad)
-                else if (mensaje.toLowerCase().includes('listo') ||
+                // Si es confirmación por texto (opción 3 o palabras)
+                else if (mensaje === '3' ||
+                         mensaje.toLowerCase().includes('listo') ||
                          mensaje.toLowerCase().includes('enviado') ||
                          mensaje.toLowerCase() === 'ok' ||
                          mensaje === '✅') {
                     respuesta = await this.procesarComprobante(from, fullState, null);
                     fullState = { step: 'pedido_completado', data: {} };
                 }
-                // Recordatorio mejorado con opciones claras
+                // Respuesta inválida - manejar intentos
                 else {
-                    respuesta = `Por favor, elige una opción:
-
-📸 *Envía la foto del comprobante*
-
-*O escribe:*
-• *DESPUES* - Enviar comprobante más tarde (tienes 24 horas)
-• *CANCELAR* - Cancelar el pedido
-• *LISTO* - Si ya hiciste la transferencia pero no puedes enviar foto
-
-_Tu código de pedido: ${fullState.data.pedidoTempId || 'CAF-' + Date.now().toString().slice(-6)}_`;
+                    fullState.data.intentosComprobante++;
+                    
+                    if (fullState.data.intentosComprobante >= 3) {
+                        // Después de 3 intentos, cancelar automáticamente
+                        fullState.data = {};
+                        respuesta = `⚠️ *PEDIDO CANCELADO AUTOMÁTICAMENTE*\n\nNo recibimos una respuesta válida después de 3 intentos.\n\n━━━━━━━━━━━━━━━━━\n\nPara realizar un nuevo pedido:\n\n*MENÚ PRINCIPAL*\n\n*1* - Ver catálogo\n*2* - Consultar pedido\n*3* - Información\n\nEnvía el número de tu elección`;
+                        fullState.step = 'menu_principal';
+                    } else {
+                        // Mostrar mensaje con contador de intentos
+                        const intentosRestantes = 3 - fullState.data.intentosComprobante;
+                        respuesta = `❌ *OPCIÓN NO VÁLIDA*\n\n⚠️ *Intento ${fullState.data.intentosComprobante} de 3*\nTe quedan ${intentosRestantes} intento${intentosRestantes > 1 ? 's' : ''}.\n\n━━━━━━━━━━━━━━━━━\n\nPor favor, elige una opción válida:\n\n📸 *Envía la foto del comprobante*\n\n*O escribe el número:*\n*1* - Enviar comprobante más tarde (24 horas)\n*2* - Cancelar el pedido\n*3* - Si ya hiciste la transferencia\n\n_Tu código de pedido: ${fullState.data.pedidoTempId || 'CAF-' + Date.now().toString().slice(-6)}_\n\n⚠️ *Si no eliges una opción válida, el pedido se cancelará automáticamente.*`;
+                    }
                 }
+                break;
+                
+            case 'pedido_completado':
+                // Cualquier mensaje después de completar pedido lleva al menú
+                const todosLosPedidosCompleto = stateManager.getUserOrders(from);
+                const pedidosActivosCompleto = todosLosPedidosCompleto.filter(p => {
+                    const estado = p.estado || p.status || '';
+                    return estado !== 'Completado' && 
+                           estado !== 'Entregado' && 
+                           estado !== 'Cancelado';
+                });
+                const tieneHistorialCompleto = todosLosPedidosCompleto.length > 0;
+                
+                respuesta = this.obtenerMenu({ step: 'menu_principal', data: {} }, pedidosActivosCompleto, tieneHistorialCompleto, from);
+                fullState.step = 'menu_principal';
                 break;
                 
             default:
@@ -987,10 +1087,57 @@ _Selecciona un nuevo producto para reemplazarlo_
 
 `;
         historial.forEach((p, index) => {
-            const fecha = new Date(p.timestamp || p.fecha).toLocaleDateString('es-PE');
+            // Manejar diferentes formatos de fecha
+            let fechaStr = 'Fecha no disponible';
+            
+            try {
+                if (p.timestamp) {
+                    // Si tiene timestamp, usarlo
+                    const fecha = new Date(p.timestamp);
+                    if (!isNaN(fecha.getTime())) {
+                        fechaStr = fecha.toLocaleDateString('es-PE');
+                    }
+                } else if (p.fecha) {
+                    // Si tiene fecha string, intentar parsearla
+                    // Formato esperado: "DD/MM/YYYY" o "YYYY-MM-DD"
+                    if (p.fecha.includes('/')) {
+                        // Formato DD/MM/YYYY
+                        const partes = p.fecha.split('/');
+                        if (partes.length === 3) {
+                            const dia = parseInt(partes[0]);
+                            const mes = parseInt(partes[1]) - 1; // Los meses en JS son 0-11
+                            const año = parseInt(partes[2]);
+                            const fecha = new Date(año, mes, dia);
+                            if (!isNaN(fecha.getTime())) {
+                                fechaStr = fecha.toLocaleDateString('es-PE');
+                            } else {
+                                fechaStr = p.fecha; // Usar la fecha original si no se puede parsear
+                            }
+                        } else {
+                            fechaStr = p.fecha;
+                        }
+                    } else if (p.fecha.includes('-')) {
+                        // Formato YYYY-MM-DD o similar
+                        const fecha = new Date(p.fecha);
+                        if (!isNaN(fecha.getTime())) {
+                            fechaStr = fecha.toLocaleDateString('es-PE');
+                        } else {
+                            fechaStr = p.fecha;
+                        }
+                    } else {
+                        fechaStr = p.fecha; // Usar fecha original si no se reconoce formato
+                    }
+                } else {
+                    fechaStr = 'Reciente';
+                }
+            } catch (e) {
+                console.error('Error parseando fecha:', e);
+                fechaStr = p.fecha || 'Reciente';
+            }
+            
             respuesta += `*${index + 1}.* ${p.producto?.nombre || 'Producto'}
    ${p.cantidad}kg - ${this.formatearPrecio(p.total)}
-   ${fecha}
+   ${fechaStr}
    ${p.status === 'Confirmado' ? '✅' : ''} ${p.status || p.estado}
 
 `;
@@ -1127,7 +1274,7 @@ Puedes consultar el estado con tu código en cualquier momento.
 
 Gracias por tu compra!
 
-_Escribe *menu* para realizar otro pedido_`;
+_Escribe cualquier mensaje para volver al menú_`;
     }
     
     /**
@@ -1336,7 +1483,7 @@ ${userState.data.cantidad}kg - ${this.formatearPrecio(userState.data.total)}
 
 Guarda tu código: *${pedidoId}*
 
-_Escribe *menu* para volver al menú principal_`;
+_Escribe cualquier mensaje para volver al menú_`;
     }
     
     /**

@@ -50,13 +50,36 @@ class StateManager {
             if (orders && orders.length > 0) {
                 orders.forEach(order => {
                     if (order.id) {
+                        // Intentar crear un timestamp válido
+                        let timestamp = null;
+                        if (order.fecha) {
+                            // Si la fecha es en formato DD/MM/YYYY
+                            if (order.fecha.includes('/')) {
+                                const partes = order.fecha.split('/');
+                                if (partes.length === 3) {
+                                    const dia = parseInt(partes[0]);
+                                    const mes = parseInt(partes[1]) - 1;
+                                    const año = parseInt(partes[2]);
+                                    timestamp = new Date(año, mes, dia);
+                                }
+                            } else {
+                                // Intentar parsear otros formatos
+                                timestamp = new Date(order.fecha);
+                            }
+                        }
+                        
+                        // Si no se pudo parsear la fecha, usar fecha actual
+                        if (!timestamp || isNaN(timestamp.getTime())) {
+                            timestamp = new Date();
+                        }
+                        
                         // Reconstruir el pedido desde Sheets
                         const orderData = {
                             id: order.id,
                             userId: order.whatsappSesion || order.telefono || order.userId,
                             telefono: order.telefonoContacto || order.telefono,
                             fecha: order.fecha,
-                            timestamp: new Date(order.fecha),
+                            timestamp: timestamp,
                             producto: {
                                 nombre: order.producto,
                                 precio: parseFloat(order.precioUnit) || 0
