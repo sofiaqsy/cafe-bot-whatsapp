@@ -153,35 +153,23 @@ class ProductCatalog {
         console.log(`📦 formatProductList: ${products.length} productos disponibles`);
         
         if (products.length === 0) {
-            return `☕ *CATÁLOGO DE CAFÉ* ☕
-
-⚠️ No hay productos disponibles en este momento.
-
-_Por favor, inténtalo más tarde o contacta al administrador._`;
+            return `☕ *CATÁLOGO DE CAFÉ* ☕\n\n⚠️ No hay productos disponibles en este momento.\n\n_Por favor, inténtalo más tarde o contacta al administrador._`;
         }
         
-        let message = '☕ *CATÁLOGO DE CAFÉ* ☕
-
-';
+        let message = '☕ *CATÁLOGO DE CAFÉ* ☕\n\n';
         
         products.forEach(product => {
-            message += `*${product.numero}.* ${product.nombre}
-`;
-            message += `   📍 Origen: ${product.origen}
-`;
-            message += `   🎯 ${product.descripcion}
-`;
-            message += `   💰 Precio: S/${product.precio}/kg
-`;
+            message += `*${product.numero}.* ${product.nombre}\n`;
+            message += `   📍 Origen: ${product.origen}\n`;
+            message += `   🎯 ${product.descripcion}\n`;
+            message += `   💰 Precio: S/${product.precio}/kg\n`;
             
             // Mostrar stock si está disponible
             if (product.stock !== undefined && product.stock !== null) {
                 if (product.stock > 0) {
-                    message += `   📦 Stock: ${product.stock}kg disponibles
-`;
+                    message += `   📦 Stock: ${product.stock}kg disponibles\n`;
                 } else {
-                    message += `   ⚠️ *Agotado temporalmente*
-`;
+                    message += `   ⚠️ *Agotado temporalmente*\n`;
                 }
             }
             
