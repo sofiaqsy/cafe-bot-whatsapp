@@ -63,36 +63,36 @@ router.post('/webhook-estado', async (req, res) => {
         switch(estado.nuevo) {
             case 'Pago confirmado':
                 mensaje = `✅ *PAGO CONFIRMADO*\n\n` +
-                         `Hola ${empresa}! 👋\n\n` +
+                         `Hola ${empresa}!\n\n` +
                          `Tu pago del pedido *${pedido.id}* ha sido confirmado.\n\n` +
-                         `📦 *Producto:* ${pedido.producto}\n` +
-                         `⚖️ *Cantidad:* ${pedido.cantidad}kg\n\n` +
+                         `*Producto:* ${pedido.producto}\n` +
+                         `*Cantidad:* ${pedido.cantidad}kg\n\n` +
                          `Estamos preparando tu pedido. Te notificaremos cuando esté listo.\n\n` +
-                         `_Gracias por tu compra!_ ☕`;
+                         `_Gracias por tu compra!_`;
                 break;
                 
             case 'En preparación':
                 mensaje = `🔄 *PEDIDO EN PREPARACIÓN*\n\n` +
                          `${empresa}, tu pedido *${pedido.id}* está siendo preparado.\n\n` +
-                         `📦 ${pedido.producto} - ${pedido.cantidad}kg\n\n` +
-                         `⏱️ Tiempo estimado: 20-30 minutos\n\n` +
+                         `${pedido.producto} - ${pedido.cantidad}kg\n\n` +
+                         `Tiempo estimado: 20-30 minutos\n\n` +
                          `Te avisaremos cuando esté listo.`;
                 break;
                 
             case 'En camino':
                 mensaje = `🚚 *PEDIDO EN CAMINO*\n\n` +
-                         `¡${empresa}, tu pedido está en camino! 🎉\n\n` +
+                         `${empresa}, tu pedido está en camino!\n\n` +
                          `*Código:* ${pedido.id}\n` +
-                         `📦 ${pedido.producto} - ${pedido.cantidad}kg\n\n` +
+                         `${pedido.producto} - ${pedido.cantidad}kg\n\n` +
                          `El repartidor llegará pronto a tu dirección.\n\n` +
                          `_Prepara el efectivo si tu pago es contra entrega._`;
                 break;
                 
             case 'Listo para recoger':
                 mensaje = `📍 *PEDIDO LISTO PARA RECOGER*\n\n` +
-                         `${empresa}, tu pedido *${pedido.id}* está listo! ✨\n\n` +
-                         `📦 ${pedido.producto} - ${pedido.cantidad}kg\n\n` +
-                         `📍 *Puedes recogerlo en:*\n` +
+                         `${empresa}, tu pedido *${pedido.id}* está listo!\n\n` +
+                         `${pedido.producto} - ${pedido.cantidad}kg\n\n` +
+                         `*Puedes recogerlo en:*\n` +
                          `Av. Principal 123, Lima\n` +
                          `Horario: 8am - 6pm\n\n` +
                          `_No olvides tu código de pedido._`;
@@ -101,11 +101,11 @@ router.post('/webhook-estado', async (req, res) => {
             case 'Entregado':
                 mensaje = `✅ *PEDIDO ENTREGADO*\n\n` +
                          `${empresa}, confirmamos la entrega de tu pedido *${pedido.id}*.\n\n` +
-                         `📦 ${pedido.producto} - ${pedido.cantidad}kg\n\n` +
-                         `¡Gracias por tu compra! ☕\n\n` +
-                         `💬 *Tu opinión es importante*\n` +
+                         `${pedido.producto} - ${pedido.cantidad}kg\n\n` +
+                         `Gracias por tu compra!\n\n` +
+                         `*Tu opinión es importante*\n` +
                          `Cuéntanos cómo fue tu experiencia respondiendo este mensaje.\n\n` +
-                         `_¡Esperamos verte pronto!_`;
+                         `_Esperamos verte pronto!_`;
                 break;
                 
             case 'Cancelado':
