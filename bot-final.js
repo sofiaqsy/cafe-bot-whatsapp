@@ -319,9 +319,16 @@ async function manejarMensaje(from, body) {
     try {
         // Comando global: MENÚ
         if (mensaje.toLowerCase() === 'menu' || mensaje.toLowerCase() === 'menú') {
-            const pedidosPendientes = obtenerPedidosPendientes(from);
-            const tieneHistorial = obtenerHistorialPedidos(from).length > 0;
-            respuesta = obtenerMenu(userState, pedidosPendientes, tieneHistorial);
+            // Generar menú con pedidos desde Sheets si está disponible
+            if (sheetsConfigured && googleSheets && googleSheets.initialized) {
+                console.log('🔍 Consultando pedidos en Google Sheets...');
+                respuesta = await generarMenuConPedidos(googleSheets, from, userState);
+            } else {
+                // Menú básico sin Sheets
+                const pedidosPendientes = obtenerPedidosPendientes(from);
+                const tieneHistorial = obtenerHistorialPedidos(from).length > 0;
+                respuesta = obtenerMenu(userState, pedidosPendientes, tieneHistorial);
+            }
             userState.step = 'menu_principal';
             userStates.set(from, userState);
             return respuesta;
