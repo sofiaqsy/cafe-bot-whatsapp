@@ -663,32 +663,10 @@ _Selecciona un nuevo producto para reemplazarlo_
 `;
         }
         
-        return `${headerCatalogo}☕ *CATÁLOGO DE CAFÉ*
-
-*1. Premium* - S/50/kg
-   📍 Chanchamayo
-   🎯 Chocolate y frutos rojos
-
-*2. Estándar* - S/40/kg
-   📍 Satipo
-   🎯 Caramelo y nueces
-
-*3. Orgánico* ✅ - S/60/kg
-   📍 Villa Rica
-   🎯 Floral y cítrico
-
-*4. Mezcla Especial* - S/35/kg
-   📍 Blend peruano
-   🎯 Ideal para espresso
-
-*5. Descafeinado* - S/45/kg
-   📍 Cusco
-   🎯 Suave sin cafeína
-
-📦 *Pedido mínimo: 5kg*
-
-*Envía el número del producto que deseas*
-_Escribe *menu* para volver_`;
+        // Usar el catálogo dinámico de productCatalog
+        const catalogoFormateado = productCatalog.formatProductList();
+        
+        return `${headerCatalogo}${catalogoFormateado}`;
     }
     
     /**

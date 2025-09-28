@@ -159,6 +159,15 @@ class ServiceInitializer {
         try {
             const orderHandler = require('./order-handler');
             const stateManager = require('./state-manager');
+            const productCatalog = require('./product-catalog');
+            
+            // Inicializar el catálogo de productos con Google Sheets
+            if (this.services.sheets) {
+                console.log('📦 Inicializando catálogo de productos...');
+                productCatalog.initialize(this.services.sheets);
+                // Esperar a que se cargue el catálogo inicial
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
             
             orderHandler.initialize(this.services);
             
