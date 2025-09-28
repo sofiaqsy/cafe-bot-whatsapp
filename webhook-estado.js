@@ -45,8 +45,16 @@ router.post('/webhook-estado', async (req, res) => {
         console.log(`   Estado anterior: ${estado.anterior}`);
         console.log(`   Estado nuevo: ${estado.nuevo}`);
         
-        // Importar el servicio de Twilio
-        const twilioService = require('./twilio-service');
+        // Importar el servicio de mensajes
+        const messageService = require('./message-service');
+        const serviceInitializer = require('./service-initializer');
+        
+        // Verificar si el servicio está inicializado
+        if (!messageService.isConfigured) {
+            // Intentar inicializar con el cliente de Twilio existente
+            const twilioClient = serviceInitializer.getTwilioClient();
+            messageService.initialize(twilioClient);
+        }
         
         // Construir mensaje según el estado
         let mensaje = '';
@@ -120,7 +128,7 @@ router.post('/webhook-estado', async (req, res) => {
             try {
                 console.log(`📱 Enviando notificación a ${cliente.whatsapp}`);
                 
-                await twilioService.sendMessage(cliente.whatsapp, mensaje);
+                await messageService.sendMessage(cliente.whatsapp, mensaje);
                 
                 console.log(`✅ Notificación enviada exitosamente`);
                 
