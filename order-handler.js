@@ -122,9 +122,9 @@ class OrderHandler {
                     const greeting = this.getGreeting();
                     
                     if (customer && customer.contacto) {
-                        saludoInicial = `${greeting} ${customer.contacto}! 👋\n\nBienvenido de vuelta a *${config.business.name}* ☕\n\n`;
+                        saludoInicial = `${greeting} ${customer.contacto}!\n\nBienvenido de vuelta a *${config.business.name}*\n\n`;
                     } else {
-                        saludoInicial = `${greeting}! 👋\n\nBienvenido a *${config.business.name}* ☕\n\n`;
+                        saludoInicial = `${greeting}!\n\nBienvenido a *${config.business.name}*\n\n`;
                     }
                     
                     // Combinar saludo con menú (que ya incluye los pedidos activos)
@@ -135,7 +135,7 @@ class OrderHandler {
                     stateManager.setTempOrder(from, fullState);
                 } else {
                     // MENSAJE COMPLETO EN UNA SOLA RESPUESTA
-                    respuesta = `Hola 👋
+                    respuesta = `Hola
 
 Soy el asistente virtual de *${config.business.name}*
 
@@ -538,7 +538,7 @@ _O escribe *cancelar* para cancelar el proceso_`;
             default:
                 // Estado desconocido, reiniciar
                 fullState = { step: 'inicio', data: {} };
-                respuesta = `Hola 👋
+                respuesta = `Hola
 
 Soy el asistente virtual de *${config.business.name}*
 
@@ -565,40 +565,59 @@ O envía directamente:
         
         // Mostrar pedidos activos si existen
         if (pedidosActivos && pedidosActivos.length > 0) {
-            headerPedidos = `📦 *TUS PEDIDOS ACTIVOS:*
+            headerPedidos = `*TUS PEDIDOS ACTIVOS:*
 `;
             headerPedidos += `━━━━━━━━━━━━━━━━━
 `;
             
             pedidosActivos.forEach(p => {
-                const tiempo = Math.round((new Date() - new Date(p.timestamp || p.fecha)) / (1000 * 60));
-                let tiempoTexto;
-                if (tiempo < 60) {
-                    tiempoTexto = `${tiempo} min`;
-                } else if (tiempo < 1440) {
-                    tiempoTexto = `${Math.round(tiempo/60)} horas`;
-                } else {
-                    tiempoTexto = `${Math.round(tiempo/1440)} días`;
+                // Calcular tiempo transcurrido de forma segura
+                let tiempoTexto = 'Hoy';
+                
+                try {
+                    const fechaPedido = p.timestamp || p.fecha;
+                    if (fechaPedido) {
+                        const fecha = new Date(fechaPedido);
+                        const ahora = new Date();
+                        
+                        if (!isNaN(fecha.getTime())) {
+                            const tiempoMs = ahora - fecha;
+                            const minutos = Math.floor(tiempoMs / (1000 * 60));
+                            
+                            if (minutos < 0) {
+                                tiempoTexto = 'Reciente';
+                            } else if (minutos < 60) {
+                                tiempoTexto = `${minutos} min`;
+                            } else if (minutos < 1440) {
+                                const horas = Math.floor(minutos / 60);
+                                tiempoTexto = `${horas} ${horas === 1 ? 'hora' : 'horas'}`;
+                            } else {
+                                const dias = Math.floor(minutos / 1440);
+                                tiempoTexto = `${dias} ${dias === 1 ? 'día' : 'días'}`;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    tiempoTexto = 'Hoy';
                 }
                 
-                // Determinar ícono según estado
-                let iconoEstado = '⏳';
-                if (p.estado === 'En camino') {
-                    iconoEstado = '🚚';
-                } else if (p.estado === 'En preparación') {
-                    iconoEstado = '👨‍🍳';
-                } else if (p.estado === 'Pago confirmado' || p.estado === 'Verificado') {
-                    iconoEstado = '✅';
+                // Obtener el nombre del producto correctamente
+                let nombreProducto = 'Producto';
+                if (typeof p.producto === 'string') {
+                    nombreProducto = p.producto;
+                } else if (p.producto && p.producto.nombre) {
+                    nombreProducto = p.producto.nombre;
                 }
                 
-                headerPedidos += `\n${iconoEstado} *${p.id}*\n`;
-                headerPedidos += `   ${p.producto || 'Producto'}\n`;
-                headerPedidos += `   ${p.cantidad}kg - S/${(p.total || 0).toFixed(2)}\n`;
-                headerPedidos += `   Estado: *${p.estado}*\n`;
-                headerPedidos += `   ⏱️ Hace ${tiempoTexto}\n`;
+                // Formatear el pedido
+                headerPedidos += `\n*${p.id}*\n`;
+                headerPedidos += `${nombreProducto}\n`;
+                headerPedidos += `${p.cantidad}kg - S/${(p.total || 0).toFixed(2)}\n`;
+                headerPedidos += `Estado: *${p.estado}*\n`;
+                headerPedidos += `Hace ${tiempoTexto}\n`;
             });
             
-            headerPedidos += `\n💡 _Usa el código para consultar detalles_\n`;
+            headerPedidos += `\n_Usa el código para consultar detalles_\n`;
             headerPedidos += `━━━━━━━━━━━━━━━━━\n\n`;
         }
         
@@ -607,20 +626,20 @@ O envía directamente:
             const cantidadStr = userState.data.cantidad ? `${userState.data.cantidad}kg` : 'cantidad por definir';
             const totalStr = userState.data.total ? `S/${userState.data.total.toFixed(2)}` : 'por calcular';
             
-            headerPedidos += `🛒 *PEDIDO ACTUAL (sin confirmar)*\n`;
+            headerPedidos += `*PEDIDO ACTUAL (sin confirmar)*\n`;
             headerPedidos += `━━━━━━━━━━━━━━━━━\n`;
-            headerPedidos += `📦 ${userState.data.producto.nombre}\n`;
-            headerPedidos += `⚖️ Cantidad: ${cantidadStr}\n`;
-            headerPedidos += `💰 Total: ${totalStr}\n`;
+            headerPedidos += `${userState.data.producto.nombre}\n`;
+            headerPedidos += `Cantidad: ${cantidadStr}\n`;
+            headerPedidos += `Total: ${totalStr}\n`;
             headerPedidos += `━━━━━━━━━━━━━━━━━\n\n`;
-            headerPedidos += `💡 _Escribe *cancelar* para eliminar_\n\n`;
+            headerPedidos += `_Escribe *cancelar* para eliminar_\n\n`;
         }
         
         // Agregar opción de reordenar si tiene historial
         const opcionReordenar = tieneHistorial ? 
             `*4* - Volver a pedir\n` : '';
         
-        return `${headerPedidos}📱 *MENÚ PRINCIPAL*
+        return `${headerPedidos}*MENÚ PRINCIPAL*
 
 *1* - Ver catálogo y pedir
 *2* - Consultar pedido
@@ -805,7 +824,7 @@ _Escribe *menu* para realizar otro pedido_`;
         const opcionReordenar = tieneHistorial ? 
             `*4* - Volver a pedir\n` : '';
         
-        return `📱 *MENÚ PRINCIPAL*
+        return `*MENÚ PRINCIPAL*
 
 *1* - Ver catálogo y pedir
 *2* - Consultar pedido
