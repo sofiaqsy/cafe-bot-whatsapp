@@ -1596,7 +1596,7 @@ function generarMensajeEstadoNotificacion(pedido, nuevoEstado) {
     const { id, empresa, producto, cantidad } = pedido;
     
     const mensajes = {
-        'Pago verificado ✅': `✅ *¡PAGO CONFIRMADO!*
+        'Pago confirmado': `✅ *¡PAGO CONFIRMADO!*
 ━━━━━━━━━━━━━━━━━
 
 Tu pedido *${id}* ha sido verificado exitosamente.
@@ -1613,7 +1613,7 @@ Tiempo estimado: 24-48 horas
 
 ¡Gracias por tu confianza! ☕`,
         
-        'En preparación': `👨‍🍳 *PEDIDO EN PREPARACIÓN*
+        'En preparación': `☕ *PEDIDO EN PREPARACIÓN*
 ━━━━━━━━━━━━━━━━━
 
 Tu pedido *${id}* está siendo preparado.
@@ -1622,7 +1622,7 @@ Tu pedido *${id}* está siendo preparado.
 
 Nuestro equipo está seleccionando los mejores granos para ti.
 
-⏱️ Te notificaremos cuando esté listo para envío.`,
+⏱️ Te notificaremos cuando esté listo.`,
         
         'En camino': `🚚 *¡PEDIDO EN CAMINO!*
 ━━━━━━━━━━━━━━━━━
@@ -1637,6 +1637,21 @@ El repartidor se comunicará contigo al llegar.
 ⏱️ Tiempo estimado: 2-4 horas
 
 ¡Prepara tu cafetera! ☕`,
+        
+        'Listo para recoger': `📦 *¡PEDIDO LISTO!*
+━━━━━━━━━━━━━━━━━
+
+Tu pedido *${id}* está listo para recoger.
+
+📦 ${producto} - ${cantidad}kg
+
+🏢 *Dirección de recojo:*
+Av. Ejemplo 123, Local 45
+
+⏰ *Horario de atención:*
+Lunes a Sábado: 9:00 AM - 6:00 PM
+
+¡Te esperamos! ☕`,
         
         'Entregado': `✅ *PEDIDO ENTREGADO*
 ━━━━━━━━━━━━━━━━━
