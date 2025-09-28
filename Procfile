@@ -1,1 +1,1 @@
-web: node bot-final.js
+web: node app.js
