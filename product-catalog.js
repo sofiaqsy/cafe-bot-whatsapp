@@ -137,6 +137,20 @@ class ProductCatalog {
     }
     
     /**
+     * Forzar recarga del catálogo desde Google Sheets
+     */
+    async forceReload() {
+        console.log('🔄 Forzando recarga del catálogo...');
+        const result = await this.loadFromSheets();
+        if (result) {
+            console.log('✅ Catálogo recargado exitosamente');
+        } else {
+            console.log('⚠️ No se pudo recargar el catálogo');
+        }
+        return result;
+    }
+    
+    /**
      * Check if a product exists
      */
     productExists(identifier) {

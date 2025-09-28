@@ -914,6 +914,14 @@ class GoogleSheetsIntegration {
                 }
                 
                 console.log(`✅ Stock actualizado exitosamente para ${response.data.values[filaIndex][1]}`);
+                
+                // Notificar al product-catalog para que actualice su caché
+                const productCatalog = require('./product-catalog');
+                if (productCatalog) {
+                    console.log('🔄 Recargando catálogo después de actualizar stock...');
+                    await productCatalog.loadFromSheets();
+                }
+                
                 return true;
             } else {
                 console.log(`❌ No se encontró el producto con ID: ${idProducto}`);

@@ -171,7 +171,7 @@ O envía directamente:
                         if (!fullState.data) {
                             fullState.data = {};
                         }
-                        respuesta = this.mostrarCatalogo(fullState);
+                        respuesta = await this.mostrarCatalogo(fullState);
                         fullState.step = 'seleccion_producto';
                         break;
                         
@@ -762,8 +762,12 @@ Envía el número de tu elección`;
     /**
      * Mostrar catálogo
      */
-    mostrarCatalogo(userState) {
+    async mostrarCatalogo(userState) {
         console.log('📦 Mostrando catálogo...');
+        
+        // Recargar catálogo desde Google Sheets para tener datos actualizados
+        console.log('   Recargando catálogo desde Sheets...');
+        await productCatalog.forceReload();
         
         let headerCatalogo = '';
         if (userState.data && userState.data.producto) {
