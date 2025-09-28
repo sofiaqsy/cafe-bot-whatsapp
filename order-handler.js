@@ -44,11 +44,17 @@ class OrderHandler {
         
         // Comando global: MENÚ
         if (mensaje.toLowerCase() === 'menu' || mensaje.toLowerCase() === 'menú') {
-            const pedidosPendientes = stateManager.getPendingOrders(from);
-            const tieneHistorial = stateManager.getUserOrders(from).length > 0;
+            const todosLosPedidos = stateManager.getUserOrders(from);
+            const pedidosActivos = todosLosPedidos.filter(p => {
+                const estado = p.estado || p.status || '';
+                return estado !== 'Completado' && 
+                       estado !== 'Entregado' && 
+                       estado !== 'Cancelado';
+            });
+            const tieneHistorial = todosLosPedidos.length > 0;
             
-            // Construir menú con pedidos pendientes si existen
-            const respuesta = this.obtenerMenu(fullState, pedidosPendientes, tieneHistorial);
+            // Construir menú con pedidos activos
+            const respuesta = this.obtenerMenu(fullState, pedidosActivos, tieneHistorial);
             
             fullState.step = 'menu_principal';
             stateManager.setUserState(from, 'menu_principal');
@@ -63,9 +69,18 @@ class OrderHandler {
                 mensajeCancelacion = `❌ Pedido de *${fullState.data.producto.nombre}* cancelado\n\n`;
             }
             fullState = { step: 'menu_principal', data: {} };
-            const pedidosPendientes = stateManager.getPendingOrders(from);
-            const tieneHistorial = stateManager.getUserOrders(from).length > 0;
-            const respuesta = `${mensajeCancelacion}${this.obtenerMenu(fullState, pedidosPendientes, tieneHistorial)}`;
+            
+            // Obtener pedidos activos
+            const todosLosPedidos = stateManager.getUserOrders(from);
+            const pedidosActivos = todosLosPedidos.filter(p => {
+                const estado = p.estado || p.status || '';
+                return estado !== 'Completado' && 
+                       estado !== 'Entregado' && 
+                       estado !== 'Cancelado';
+            });
+            const tieneHistorial = todosLosPedidos.length > 0;
+            
+            const respuesta = `${mensajeCancelacion}${this.obtenerMenu(fullState, pedidosActivos, tieneHistorial)}`;
             stateManager.setUserState(from, 'menu_principal');
             stateManager.setTempOrder(from, fullState);
             return await messageService.sendMessage(from, respuesta);
@@ -89,14 +104,20 @@ class OrderHandler {
                     mensaje.toLowerCase().includes('buenas') ||
                     mensaje.toLowerCase().includes('buenos')) {
                     
-                    // IMPORTANTE: Obtener pedidos pendientes y mostrarlos en el menú
-                    const pedidosPendientes = stateManager.getPendingOrders(from);
-                    const tieneHistorial = stateManager.getUserOrders(from).length > 0;
+                    // IMPORTANTE: Obtener pedidos activos y mostrarlos en el menú
+                    const todosLosPedidos = stateManager.getUserOrders(from);
+                    const pedidosActivos = todosLosPedidos.filter(p => {
+                        const estado = p.estado || p.status || '';
+                        return estado !== 'Completado' && 
+                               estado !== 'Entregado' && 
+                               estado !== 'Cancelado';
+                    });
+                    const tieneHistorial = todosLosPedidos.length > 0;
                     
                     // Obtener cliente si existe
                     const customer = stateManager.getCustomerData(from);
                     
-                    // Construir saludo personalizado con pedidos pendientes
+                    // Construir saludo personalizado
                     let saludoInicial = '';
                     const greeting = this.getGreeting();
                     
@@ -106,29 +127,8 @@ class OrderHandler {
                         saludoInicial = `${greeting}! 👋\n\nBienvenido a *${config.business.name}* ☕\n\n`;
                     }
                     
-                    // Si hay pedidos pendientes, mostrarlos primero
-                    if (pedidosPendientes && pedidosPendientes.length > 0) {
-                        let headerPedidos = `📦 *TIENES PEDIDOS PENDIENTES:*\n━━━━━━━━━━━━━━━━━\n`;
-                        
-                        pedidosPendientes.forEach(p => {
-                            const tiempo = Math.round((new Date() - new Date(p.timestamp || p.fecha)) / (1000 * 60));
-                            const tiempoTexto = tiempo < 60 ? `${tiempo} min` : `${Math.round(tiempo/60)} horas`;
-                            
-                            headerPedidos += `\n📦 *${p.id}*\n`;
-                            headerPedidos += `   ${p.producto?.nombre || 'Producto'}\n`;
-                            headerPedidos += `   ${p.cantidad}kg - ${this.formatearPrecio(p.total)}\n`;
-                            headerPedidos += `   ⏳ Hace ${tiempoTexto}\n`;
-                            headerPedidos += `   📸 *Envía el comprobante de pago*\n`;
-                        });
-                        
-                        headerPedidos += `\n━━━━━━━━━━━━━━━━━\n\n`;
-                        
-                        // Mensaje completo con pedidos pendientes y menú
-                        respuesta = saludoInicial + headerPedidos + this.obtenerMenuSimple(tieneHistorial);
-                    } else {
-                        // Sin pedidos pendientes, mostrar menú normal
-                        respuesta = saludoInicial + this.obtenerMenuSimple(tieneHistorial);
-                    }
+                    // Combinar saludo con menú (que ya incluye los pedidos activos)
+                    respuesta = saludoInicial + this.obtenerMenu(fullState, pedidosActivos, tieneHistorial);
                     
                     fullState.step = 'menu_principal';
                     stateManager.setUserState(from, 'menu_principal');
@@ -148,8 +148,14 @@ O envía directamente:
                 break;
                 
             case 'menu_principal':
-                const pedidosPendientesMenu = stateManager.getPendingOrders(from);
-                const tieneHistorialMenu = stateManager.getUserOrders(from).length > 0;
+                const todosLosPedidosMenu = stateManager.getUserOrders(from);
+                const pedidosActivosMenu = todosLosPedidosMenu.filter(p => {
+                    const estado = p.estado || p.status || '';
+                    return estado !== 'Completado' && 
+                           estado !== 'Entregado' && 
+                           estado !== 'Cancelado';
+                });
+                const tieneHistorialMenu = todosLosPedidosMenu.length > 0;
                 
                 switch (mensaje) {
                     case '1':
@@ -552,60 +558,73 @@ O envía directamente:
     }
     
     /**
-     * Obtener menú con pedidos pendientes
+     * Obtener menú con pedidos activos
      */
-    obtenerMenu(userState, pedidosPendientes, tieneHistorial) {
+    obtenerMenu(userState, pedidosActivos, tieneHistorial) {
         let headerPedidos = '';
         
-        // Mostrar pedidos pendientes si existen
-        if (pedidosPendientes && pedidosPendientes.length > 0) {
-            headerPedidos = `📦 *PEDIDOS PENDIENTES:*
-━━━━━━━━━━━━━━━━━\n`;
-            
-            pedidosPendientes.forEach(p => {
-                const tiempo = Math.round((new Date() - new Date(p.timestamp || p.fecha)) / (1000 * 60));
-                const tiempoTexto = tiempo < 60 ? `${tiempo} min` : `${Math.round(tiempo/60)} horas`;
-                
-                headerPedidos += `📦 *${p.id}*
-   ${p.producto?.nombre || 'Producto'}
-   ${p.cantidad}kg - ${this.formatearPrecio(p.total)}
-   ⏳ Hace ${tiempoTexto}
-   
+        // Mostrar pedidos activos si existen
+        if (pedidosActivos && pedidosActivos.length > 0) {
+            headerPedidos = `📦 *TUS PEDIDOS ACTIVOS:*
 `;
+            headerPedidos += `━━━━━━━━━━━━━━━━━
+`;
+            
+            pedidosActivos.forEach(p => {
+                const tiempo = Math.round((new Date() - new Date(p.timestamp || p.fecha)) / (1000 * 60));
+                let tiempoTexto;
+                if (tiempo < 60) {
+                    tiempoTexto = `${tiempo} min`;
+                } else if (tiempo < 1440) {
+                    tiempoTexto = `${Math.round(tiempo/60)} horas`;
+                } else {
+                    tiempoTexto = `${Math.round(tiempo/1440)} días`;
+                }
+                
+                // Determinar ícono según estado
+                let iconoEstado = '⏳';
+                if (p.estado === 'En camino') {
+                    iconoEstado = '🚚';
+                } else if (p.estado === 'En preparación') {
+                    iconoEstado = '👨‍🍳';
+                } else if (p.estado === 'Pago confirmado' || p.estado === 'Verificado') {
+                    iconoEstado = '✅';
+                }
+                
+                headerPedidos += `\n${iconoEstado} *${p.id}*\n`;
+                headerPedidos += `   ${p.producto || 'Producto'}\n`;
+                headerPedidos += `   ${p.cantidad}kg - S/${(p.total || 0).toFixed(2)}\n`;
+                headerPedidos += `   Estado: *${p.estado}*\n`;
+                headerPedidos += `   ⏱️ Hace ${tiempoTexto}\n`;
             });
             
-            headerPedidos += `💡 _Consulta el estado con el código_
-━━━━━━━━━━━━━━━━━
-
-`;
+            headerPedidos += `\n💡 _Usa el código para consultar detalles_\n`;
+            headerPedidos += `━━━━━━━━━━━━━━━━━\n\n`;
         }
         
-        // Si hay un pedido en proceso, mostrarlo
+        // Si hay un pedido en proceso (aún no confirmado), mostrarlo
         if (userState.data && userState.data.producto) {
             const cantidadStr = userState.data.cantidad ? `${userState.data.cantidad}kg` : 'cantidad por definir';
-            const totalStr = userState.data.total ? this.formatearPrecio(userState.data.total) : 'por calcular';
+            const totalStr = userState.data.total ? `S/${userState.data.total.toFixed(2)}` : 'por calcular';
             
-            headerPedidos += `🛒 *PEDIDO ACTUAL:*
-━━━━━━━━━━━━━━━━━
-📦 ${userState.data.producto.nombre}
-⚖️ Cantidad: ${cantidadStr}
-💰 Total: ${totalStr}
-━━━━━━━━━━━━━━━━━
-
-💡 _Escribe *cancelar* para eliminar el pedido_
-
-`;
+            headerPedidos += `🛒 *PEDIDO ACTUAL (sin confirmar)*\n`;
+            headerPedidos += `━━━━━━━━━━━━━━━━━\n`;
+            headerPedidos += `📦 ${userState.data.producto.nombre}\n`;
+            headerPedidos += `⚖️ Cantidad: ${cantidadStr}\n`;
+            headerPedidos += `💰 Total: ${totalStr}\n`;
+            headerPedidos += `━━━━━━━━━━━━━━━━━\n\n`;
+            headerPedidos += `💡 _Escribe *cancelar* para eliminar_\n\n`;
         }
         
         // Agregar opción de reordenar si tiene historial
         const opcionReordenar = tieneHistorial ? 
-            `*4* - Volver a pedir 🔄\n` : '';
+            `*4* - Volver a pedir\n` : '';
         
         return `${headerPedidos}📱 *MENÚ PRINCIPAL*
 
-*1* - Ver catálogo y pedir ☕
-*2* - Consultar pedido 📦
-*3* - Información del negocio ℹ️
+*1* - Ver catálogo y pedir
+*2* - Consultar pedido
+*3* - Información del negocio
 ${opcionReordenar}
 Envía el número de tu elección`;
     }
@@ -784,13 +803,13 @@ _Escribe *menu* para realizar otro pedido_`;
      */
     obtenerMenuSimple(tieneHistorial) {
         const opcionReordenar = tieneHistorial ? 
-            `*4* - Volver a pedir 🔄\n` : '';
+            `*4* - Volver a pedir\n` : '';
         
         return `📱 *MENÚ PRINCIPAL*
 
-*1* - Ver catálogo y pedir ☕
-*2* - Consultar pedido 📦
-*3* - Información del negocio ℹ️
+*1* - Ver catálogo y pedir
+*2* - Consultar pedido
+*3* - Información del negocio
 ${opcionReordenar}
 Envía el número de tu elección`;
     }
