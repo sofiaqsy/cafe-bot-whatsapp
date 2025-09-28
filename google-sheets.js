@@ -408,7 +408,7 @@ class GoogleSheetsIntegration {
                     requestBody: { values: nuevosValores }
                 });
                 
-                console.log(`✅ Nuevo cliente creado: ${datosCliente.empresa} (${idCliente})`);
+                console.log(`✅ Nuevo cliente creado: ${datosCliente.empresa || 'Sin nombre'} (${idCliente})`);
                 return idCliente;
             }
         } catch (error) {
@@ -426,8 +426,8 @@ class GoogleSheetsIntegration {
         try {
             // Primero gestionar el cliente
             const idCliente = await this.guardarCliente({
-                whatsapp: datosPedido.telefono,
-                empresa: datosPedido.cafeteria || datosPedido.nombreNegocio,
+                whatsapp: datosPedido.telefono || datosPedido.userId,
+                empresa: datosPedido.empresa || datosPedido.cafeteria || datosPedido.nombreNegocio || 'Sin nombre',
                 contacto: datosPedido.contacto?.split(' - ')[0] || '',
                 telefonoContacto: datosPedido.contacto?.split(' - ')[1] || datosPedido.telefono,
                 direccion: datosPedido.direccion,

@@ -768,16 +768,32 @@ _O escribe *menu* para volver_`;
         // Guardar imagen en Drive si está disponible
         if (this.driveService && mediaUrl) {
             try {
-                const imageUrl = await this.driveService.saveImage(mediaUrl, pedidoId);
-                console.log('📸 Comprobante guardado:', imageUrl);
+                const fileName = `comprobante_${pedidoId}_${Date.now()}.jpg`;
+                const metadata = {
+                    pedidoId: pedidoId,
+                    empresa: pedidoCompleto.empresa,
+                    contacto: pedidoCompleto.contacto,
+                    total: pedidoCompleto.total,
+                    fecha: new Date().toISOString()
+                };
+                const result = await this.driveService.subirImagenDesdeURL(mediaUrl, fileName, metadata);
+                console.log('📸 Comprobante guardado:', result);
             } catch (error) {
                 console.error('Error guardando en Drive:', error);
             }
         }
         
         // Notificar admin
-        if (this.notificationService) {
-            await this.notificationService.notifyNewOrder(pedidoCompleto);
+        if (this.notificationService && this.notificationService.notificarNuevoPedido) {
+            try {
+                await this.notificationService.notificarNuevoPedido(pedidoCompleto);
+                // Si hay comprobante, notificar también para validación
+                if (mediaUrl && this.notificationService.notificarComprobanteParaValidacion) {
+                    await this.notificationService.notificarComprobanteParaValidacion(pedidoCompleto, mediaUrl, from);
+                }
+            } catch (error) {
+                console.error('Error notificando admin:', error);
+            }
         }
         
         return `📸 *¡COMPROBANTE RECIBIDO!*
