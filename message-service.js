@@ -1,6 +1,7 @@
 /**
- * Message Service Module
+ * Message Service Module (CORREGIDO)
  * Handles sending messages through Twilio or console (dev mode)
+ * Mantiene el formato exacto del bot-final.js original
  */
 
 const config = require('./config');
@@ -30,27 +31,32 @@ class MessageService {
     }
     
     /**
-     * Send a WhatsApp message
+     * Send a WhatsApp message - FORMATO EXACTO DEL ORIGINAL
      */
     async sendMessage(to, message, mediaUrl = null) {
         // Add to conversation history
         stateManager.addToHistory(to, message, 'bot');
         
         if (this.isDevelopment) {
-            // Development mode - output to console
-            console.log('📤 [DEV] Mensaje a', to);
-            console.log('━'.repeat(50));
+            // Development mode - FORMATO EXACTO DEL ORIGINAL
+            console.log('\n' + '='.repeat(60));
+            console.log('📤 MENSAJE DEL BOT (MODO DEV)');
+            console.log('Para: ' + to);
+            console.log('-'.repeat(60));
             console.log(message);
-            if (mediaUrl) {
-                console.log('🖼️ Media:', mediaUrl);
-            }
-            console.log('━'.repeat(50));
-            return { sid: 'dev-' + Date.now(), status: 'sent' };
+            console.log('='.repeat(60) + '\n');
+            
+            return { 
+                sid: 'dev-' + Date.now(),
+                status: 'simulated',
+                to: to,
+                body: message
+            };
         }
         
         if (!this.isConfigured || !this.client) {
-            console.error('❌ Twilio no está configurado');
-            return null;
+            console.log(`📤 MODO DEMO - Mensaje a ${to}:`, message.substring(0, 100) + '...');
+            return { sid: 'demo-' + Date.now() };
         }
         
         try {
@@ -65,30 +71,22 @@ class MessageService {
             }
             
             const result = await this.client.messages.create(messageOptions);
-            console.log('✅ Mensaje enviado:', result.sid);
+            console.log(`✅ Mensaje enviado a ${to}`);
             return result;
         } catch (error) {
-            console.error('❌ Error enviando mensaje:', error);
+            console.error('❌ Error enviando mensaje:', error.message);
             throw error;
         }
     }
     
     /**
-     * Send multiple messages with delay
+     * Send multiple messages with delay - NO USADO EN EL FLUJO ORIGINAL
+     * Mantenido por compatibilidad pero el bot original envía todo en un mensaje
      */
     async sendMessages(to, messages, delayMs = 1000) {
-        const results = [];
-        
-        for (const message of messages) {
-            const result = await this.sendMessage(to, message);
-            results.push(result);
-            
-            if (delayMs > 0) {
-                await this.delay(delayMs);
-            }
-        }
-        
-        return results;
+        // El bot original no divide mensajes, envía todo junto
+        const fullMessage = Array.isArray(messages) ? messages.join('\n\n') : messages;
+        return this.sendMessage(to, fullMessage);
     }
     
     /**
@@ -102,45 +100,28 @@ class MessageService {
     }
     
     /**
-     * Send welcome message
+     * Send welcome message - NO SE USA EN EL FLUJO ORIGINAL
+     * El bot original maneja el saludo directamente en order-handler
      */
     async sendWelcome(to, customerName = null) {
-        const greeting = this.getGreeting();
-        let message = `${greeting}! 👋\n\n`;
-        
-        if (customerName) {
-            message += `¡Qué bueno verte de nuevo, ${customerName}! `;
-        }
-        
-        message += `Bienvenido a *${config.business.name}* ☕\n\n`;
-        message += `¿Cómo te puedo ayudar hoy?`;
-        
-        return this.sendMessage(to, message);
+        // No se usa en el flujo original
+        return null;
     }
     
     /**
-     * Send menu
+     * Send menu - NO SE USA, el menú se genera en order-handler
      */
     async sendMenu(to) {
-        const productCatalog = require('./product-catalog');
-        const menu = productCatalog.formatProductList();
-        return this.sendMessage(to, menu);
+        // No se usa en el flujo original
+        return null;
     }
     
     /**
-     * Send order confirmation
+     * Send order confirmation - NO SE USA
      */
     async sendOrderConfirmation(to, orderDetails) {
-        let message = '✅ *PEDIDO CONFIRMADO*\n\n';
-        message += `📋 *ID Pedido:* ${orderDetails.id}\n`;
-        message += `☕ *Producto:* ${orderDetails.producto}\n`;
-        message += `📦 *Cantidad:* ${orderDetails.cantidad}kg\n`;
-        message += `💰 *Total:* S/${orderDetails.total}\n\n`;
-        message += `👤 *Cliente:* ${orderDetails.empresa}\n`;
-        message += `📧 *Email:* ${orderDetails.email}\n\n`;
-        message += '📱 *Siguiente paso:* Envía tu comprobante de pago';
-        
-        return this.sendMessage(to, message);
+        // No se usa en el flujo original
+        return null;
     }
     
     /**
