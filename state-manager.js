@@ -310,6 +310,47 @@ class StateManager {
     }
     
     /**
+     * Get pending payment orders (solo pedidos esperando comprobante)
+     */
+    getPendingPaymentOrders(userId) {
+        const allOrders = this.getUserOrders(userId);
+        const pendingPayment = allOrders.filter(
+            order => {
+                const status = order.status || order.estado || '';
+                return status === ORDER_STATES.PENDING_PAYMENT;
+            }
+        );
+        
+        console.log(`💳 Pedidos pendientes de pago para ${userId}: ${pendingPayment.length}`);
+        if (pendingPayment.length > 0) {
+            pendingPayment.forEach(order => {
+                console.log(`   - ${order.id}: ${order.producto?.nombre || 'Producto'} - S/${order.total}`);
+            });
+        }
+        
+        return pendingPayment;
+    }
+    
+    /**
+     * Update order with payment receipt
+     */
+    updateOrderWithReceipt(orderId, mediaUrl) {
+        const order = this.confirmedOrders.get(orderId);
+        if (order) {
+            order.urlComprobante = mediaUrl;
+            order.comprobanteRecibido = true;
+            order.status = ORDER_STATES.PENDING_VERIFICATION;
+            order.estado = ORDER_STATES.PENDING_VERIFICATION;
+            order.fechaComprobante = new Date();
+            order.lastUpdated = new Date();
+            console.log(`✅ Pedido ${orderId} actualizado con comprobante`);
+            return true;
+        }
+        console.log(`❌ No se encontró el pedido ${orderId}`);
+        return false;
+    }
+    
+    /**
      * Get active orders for user (pending + in process)
      */
     getActiveOrders(userId) {

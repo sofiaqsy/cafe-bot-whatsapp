@@ -62,7 +62,7 @@ class OrderHandler {
             const tieneHistorial = todosLosPedidos.length > 0;
             
             // Construir menú con pedidos activos
-            const respuesta = this.obtenerMenu(fullState, pedidosActivos, tieneHistorial);
+            const respuesta = this.obtenerMenu(fullState, pedidosActivos, tieneHistorial, from);
             
             fullState.step = 'menu_principal';
             stateManager.setUserState(from, 'menu_principal');
@@ -88,7 +88,7 @@ class OrderHandler {
             });
             const tieneHistorial = todosLosPedidos.length > 0;
             
-            const respuesta = `${mensajeCancelacion}${this.obtenerMenu(fullState, pedidosActivos, tieneHistorial)}`;
+            const respuesta = `${mensajeCancelacion}${this.obtenerMenu(fullState, pedidosActivos, tieneHistorial, from)}`;
             stateManager.setUserState(from, 'menu_principal');
             stateManager.setTempOrder(from, fullState);
             return await messageService.sendMessage(from, respuesta);
@@ -136,7 +136,7 @@ class OrderHandler {
                     }
                     
                     // Combinar saludo con menú (que ya incluye los pedidos activos)
-                    respuesta = saludoInicial + this.obtenerMenu(fullState, pedidosActivos, tieneHistorial);
+                    respuesta = saludoInicial + this.obtenerMenu(fullState, pedidosActivos, tieneHistorial, from);
                     
                     fullState.step = 'menu_principal';
                     stateManager.setUserState(from, 'menu_principal');
@@ -164,6 +164,7 @@ O envía directamente:
                            estado !== 'Cancelado';
                 });
                 const tieneHistorialMenu = todosLosPedidosMenu.length > 0;
+                const pedidosPendientesPago = stateManager.getPendingPaymentOrders(from);
                 
                 switch (mensaje) {
                     case '1':
@@ -221,12 +222,28 @@ Escribe *menu* para volver`;
                         }
                         break;
                         
+                    case '5':
+                        if (pedidosPendientesPago.length > 0) {
+                            respuesta = this.mostrarPedidosPendientesPago(from);
+                            fullState.step = 'seleccionar_pedido_pendiente';
+                        } else {
+                            respuesta = `No tienes pedidos pendientes de pago.
+
+${this.obtenerMenu(fullState, pedidosActivosMenu, tieneHistorialMenu, from)}`;
+                        }
+                        break;
+                        
                     default:
+                        // Incluir opción 5 si hay pedidos pendientes de pago
+                        const opciones = pedidosPendientesPago.length > 0 ? 
+                            `${tieneHistorialMenu ? '\n*4* - Volver a pedir' : ''}\n*5* - 💳 Enviar comprobante pendiente` : 
+                            `${tieneHistorialMenu ? '\n*4* - Volver a pedir' : ''}`;
+                        
                         respuesta = `Por favor, envía un número válido:
 
 *1* - Ver catálogo
 *2* - Consultar pedido
-*3* - Información${tieneHistorialMenu ? '\n*4* - Volver a pedir' : ''}`;
+*3* - Información${opciones}`;
                 }
                 break;
                 
@@ -608,19 +625,149 @@ _Escribe *menu* para volver_`;
                 }
                 break;
                 
+            case 'seleccionar_pedido_pendiente':
+                const pedidosPendientes = stateManager.getPendingPaymentOrders(from);
+                const indicePendiente = parseInt(mensaje) - 1;
+                
+                if (indicePendiente >= 0 && indicePendiente < pedidosPendientes.length) {
+                    const pedidoPendiente = pedidosPendientes[indicePendiente];
+                    fullState.data = {
+                        pedidoExistente: pedidoPendiente,
+                        pedidoId: pedidoPendiente.id
+                    };
+                    
+                    respuesta = `*ENVIAR COMPROBANTE PENDIENTE*
+
+Pedido: *${pedidoPendiente.id}*
+${pedidoPendiente.producto?.nombre || 'Producto'}
+${pedidoPendiente.cantidad}kg - ${this.formatearPrecio(pedidoPendiente.total)}
+
+━━━━━━━━━━━━━━━━━
+
+*MÉTODO DE PAGO*
+Realiza la transferencia a:
+
+*Cuenta BCP Soles:*
+*${config.business.banking.bcpCuenta}*
+
+*Cuenta Interbancaria (CCI):*
+*${config.business.banking.cciCuenta}*
+
+*Titular:* ${config.business.name}
+
+━━━━━━━━━━━━━━━━━
+
+*Monto a transferir: ${this.formatearPrecio(pedidoPendiente.total)}*
+
+*Envía la foto del comprobante ahora*
+
+_O escribe *cancelar* para volver_`;
+                    
+                    fullState.step = 'esperando_comprobante_pendiente';
+                } else if (mensaje.toLowerCase() === 'menu' || mensaje.toLowerCase() === 'menú') {
+                    return this.handleMessage(from, 'menu');
+                } else {
+                    respuesta = `Por favor, selecciona un número válido de la lista.
+
+_Escribe *menu* para volver_`;
+                }
+                break;
+                
+            case 'esperando_comprobante_pendiente':
+                if (mediaUrl) {
+                    // Actualizar el pedido existente con el comprobante
+                    const pedidoId = fullState.data.pedidoId;
+                    const actualizado = stateManager.updateOrderWithReceipt(pedidoId, mediaUrl);
+                    
+                    if (actualizado) {
+                        // Guardar imagen en Drive si está disponible
+                        if (this.driveService) {
+                            try {
+                                const fileName = `comprobante_${pedidoId}_${Date.now()}.jpg`;
+                                const pedido = stateManager.getConfirmedOrder(pedidoId);
+                                const metadata = {
+                                    pedidoId: pedidoId,
+                                    empresa: pedido.empresa,
+                                    contacto: pedido.contacto,
+                                    total: pedido.total,
+                                    fecha: new Date().toISOString()
+                                };
+                                await this.driveService.subirImagenDesdeURL(mediaUrl, fileName, metadata);
+                                console.log('Comprobante guardado en Drive');
+                            } catch (error) {
+                                console.error('Error guardando en Drive:', error);
+                            }
+                        }
+                        
+                        // Actualizar en Sheets
+                        if (this.sheetsService) {
+                            try {
+                                await this.sheetsService.updateOrderStatus(pedidoId, ORDER_STATES.PENDING_VERIFICATION);
+                            } catch (error) {
+                                console.error('Error actualizando en Sheets:', error);
+                            }
+                        }
+                        
+                        // Notificar admin si está disponible
+                        if (this.notificationService && this.notificationService.notificarComprobanteParaValidacion) {
+                            try {
+                                const pedido = stateManager.getConfirmedOrder(pedidoId);
+                                await this.notificationService.notificarComprobanteParaValidacion(pedido, mediaUrl, from);
+                            } catch (error) {
+                                console.error('Error notificando admin:', error);
+                            }
+                        }
+                        
+                        respuesta = `✅ *COMPROBANTE RECIBIDO*
+━━━━━━━━━━━━━━━━━
+
+✅ Tu comprobante ha sido recibido exitosamente
+
+*Código de pedido:* ${pedidoId}
+*Estado:* ${ORDER_STATES.PENDING_VERIFICATION}
+
+*Próximos pasos:*
+1. Verificaremos tu pago (máx. 30 min)
+2. Te confirmaremos por este medio
+3. Coordinaremos la entrega (24-48h)
+
+Gracias por completar tu pago!
+
+_Escribe *menu* para volver al menú principal_`;
+                    } else {
+                        respuesta = `❌ Error al actualizar el pedido.
+
+Por favor, intenta nuevamente o contacta soporte.
+
+_Escribe *menu* para volver_`;
+                    }
+                    
+                    fullState = { step: 'menu_principal', data: {} };
+                } else if (mensaje.toLowerCase() === 'cancelar') {
+                    fullState = { step: 'menu_principal', data: {} };
+                    respuesta = this.obtenerMenu(fullState, stateManager.getActiveOrders(from), stateManager.getUserOrders(from).length > 0, from);
+                } else {
+                    respuesta = `Por favor, envía la foto del comprobante de pago.
+
+_O escribe *cancelar* para volver al menú_`;
+                }
+                break;
+                
             case 'esperando_comprobante':
                 // Si hay una imagen
                 if (mediaUrl) {
                     respuesta = await this.procesarComprobante(from, fullState, mediaUrl);
                     fullState = { step: 'pedido_completado', data: {} };
                 } 
-                // Si es confirmación por texto
-                else if (mensaje.toLowerCase().includes('listo') ||
-                         mensaje.toLowerCase().includes('enviado') ||
-                         mensaje.toLowerCase() === 'ok' ||
-                         mensaje === '✅') {
-                    respuesta = await this.procesarComprobante(from, fullState, null);
-                    fullState = { step: 'pedido_completado', data: {} };
+                // Si quiere enviar después
+                else if (mensaje.toLowerCase() === 'despues' || 
+                         mensaje.toLowerCase() === 'después' ||
+                         mensaje.toLowerCase() === 'luego' ||
+                         mensaje.toLowerCase() === 'mas tarde' ||
+                         mensaje.toLowerCase() === 'más tarde') {
+                    // Guardar pedido como pendiente de pago
+                    respuesta = await this.guardarPedidoPendientePago(from, fullState);
+                    fullState = { step: 'menu_principal', data: {} };
                 }
                 // Si cancela
                 else if (mensaje.toLowerCase() === 'cancelar') {
@@ -636,13 +783,26 @@ _Escribe *menu* para volver_`;
 Envía el número de tu elección`;
                     fullState.step = 'menu_principal';
                 } 
-                // Recordatorio
+                // Si es confirmación por texto (para compatibilidad)
+                else if (mensaje.toLowerCase().includes('listo') ||
+                         mensaje.toLowerCase().includes('enviado') ||
+                         mensaje.toLowerCase() === 'ok' ||
+                         mensaje === '✅') {
+                    respuesta = await this.procesarComprobante(from, fullState, null);
+                    fullState = { step: 'pedido_completado', data: {} };
+                }
+                // Recordatorio mejorado con opciones claras
                 else {
-                    respuesta = `Por favor, envía la foto del comprobante de transferencia.
+                    respuesta = `Por favor, elige una opción:
 
-Si no puedes enviar la imagen ahora, escribe *"listo"* o *"enviado"* después de realizar la transferencia.
+📸 *Envía la foto del comprobante*
 
-_O escribe *cancelar* para cancelar el proceso_`;
+*O escribe:*
+• *DESPUES* - Enviar comprobante más tarde (tienes 24 horas)
+• *CANCELAR* - Cancelar el pedido
+• *LISTO* - Si ya hiciste la transferencia pero no puedes enviar foto
+
+_Tu código de pedido: ${fullState.data.pedidoTempId || 'CAF-' + Date.now().toString().slice(-6)}_`;
                 }
                 break;
                 
@@ -671,7 +831,10 @@ O envía directamente:
     /**
      * Obtener menú con pedidos activos
      */
-    obtenerMenu(userState, pedidosActivos, tieneHistorial) {
+    obtenerMenu(userState, pedidosActivos, tieneHistorial, from = null) {
+        // Obtener pedidos pendientes de pago del usuario
+        const userId = from || userState.userId || userState.from || '';
+        const pedidosPendientesPago = userId ? stateManager.getPendingPaymentOrders(userId) : [];
         let headerPedidos = '';
         
         // Mostrar pedidos activos si existen
@@ -749,13 +912,17 @@ O envía directamente:
         // Agregar opción de reordenar si tiene historial
         const opcionReordenar = tieneHistorial ? 
             `*4* - Volver a pedir\n` : '';
+            
+        // Agregar opción de enviar comprobante pendiente si hay pedidos pendientes de pago
+        const opcionComprobantePendiente = pedidosPendientesPago.length > 0 ?
+            `*5* - 💳 Enviar comprobante pendiente\n` : '';
         
         return `${headerPedidos}*MENÚ PRINCIPAL*
 
 *1* - Ver catálogo y pedir
 *2* - Consultar pedido
 *3* - Información del negocio
-${opcionReordenar}
+${opcionReordenar}${opcionComprobantePendiente}
 Envía el número de tu elección`;
     }
     
@@ -1029,6 +1196,126 @@ Envía el número de tu elección`;
         }
         
         return true;
+    }
+    
+    /**
+     * Mostrar pedidos pendientes de pago
+     */
+    mostrarPedidosPendientesPago(from) {
+        const pedidosPendientes = stateManager.getPendingPaymentOrders(from);
+        let respuesta = `*PEDIDOS PENDIENTES DE PAGO* 💳
+━━━━━━━━━━━━━━━━━
+
+`;
+        
+        if (pedidosPendientes.length === 0) {
+            respuesta += `No tienes pedidos pendientes de pago.\n\n_Escribe *menu* para volver_`;
+        } else {
+            respuesta += `Tienes ${pedidosPendientes.length} pedido${pedidosPendientes.length > 1 ? 's' : ''} esperando comprobante:\n\n`;
+            
+            pedidosPendientes.forEach((pedido, index) => {
+                const fecha = new Date(pedido.timestamp || pedido.fecha);
+                const ahora = new Date();
+                const horasTranscurridas = Math.floor((ahora - fecha) / (1000 * 60 * 60));
+                const tiempoRestante = Math.max(0, 24 - horasTranscurridas);
+                
+                respuesta += `*${index + 1}.* Pedido *${pedido.id}*\n`;
+                respuesta += `   ${pedido.producto?.nombre || 'Producto'}\n`;
+                respuesta += `   ${pedido.cantidad}kg - ${this.formatearPrecio(pedido.total)}\n`;
+                respuesta += `   ⏰ Tiempo restante: ${tiempoRestante}h\n`;
+                if (tiempoRestante <= 3) {
+                    respuesta += `   ⚠️ *¡Envía pronto el comprobante!*\n`;
+                }
+                respuesta += `\n`;
+            });
+            
+            respuesta += `*Selecciona el número del pedido para enviar el comprobante*\n\n`;
+            respuesta += `_O escribe *menu* para volver_`;
+        }
+        
+        return respuesta;
+    }
+    
+    /**
+     * Guardar pedido como pendiente de pago
+     */
+    async guardarPedidoPendientePago(from, userState) {
+        console.log(`\nGUARDANDO PEDIDO PENDIENTE DE PAGO`);
+        console.log(`   from: ${from}`);
+        
+        const pedidoId = userState.data.pedidoTempId || 'CAF-' + Date.now().toString().slice(-6);
+        
+        const pedidoCompleto = {
+            id: pedidoId,
+            fecha: new Date(),
+            timestamp: new Date(),
+            producto: userState.data.producto,
+            cantidad: userState.data.cantidad,
+            total: userState.data.total,
+            empresa: userState.data.empresa,
+            contacto: userState.data.contacto,
+            telefono: userState.data.telefono || from,
+            direccion: userState.data.direccion,
+            metodoPago: 'Transferencia bancaria',
+            status: ORDER_STATES.PENDING_PAYMENT,  // Estado: Pendiente de pago
+            estado: ORDER_STATES.PENDING_PAYMENT,
+            comprobanteRecibido: false,
+            esReorden: userState.data.esReorden || false,
+            urlComprobante: null,
+            userId: from,
+            fechaLimite: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 horas de límite
+        };
+        
+        console.log(`   Pedido a guardar como pendiente:`);
+        console.log(`     ID: ${pedidoCompleto.id}`);
+        console.log(`     Estado: ${pedidoCompleto.estado}`);
+        console.log(`     Total: ${pedidoCompleto.total}`);
+        
+        // Guardar pedido
+        stateManager.addConfirmedOrder(pedidoId, pedidoCompleto);
+        
+        // Guardar en Sheets si está disponible
+        if (this.sheetsService) {
+            try {
+                await this.sheetsService.saveOrder(pedidoCompleto);
+            } catch (error) {
+                console.error('Error guardando en Sheets:', error);
+            }
+        }
+        
+        // Notificar admin si está disponible
+        if (this.notificationService && this.notificationService.notificarPedidoPendiente) {
+            try {
+                await this.notificationService.notificarPedidoPendiente(pedidoCompleto);
+            } catch (error) {
+                console.error('Error notificando admin:', error);
+            }
+        }
+        
+        return `📝 *PEDIDO GUARDADO SIN COMPROBANTE*
+━━━━━━━━━━━━━━━━━
+
+✅ Tu pedido ha sido registrado
+
+*Código de pedido:* ${pedidoId}
+*Estado:* ${ORDER_STATES.PENDING_PAYMENT}
+
+*RESUMEN:*
+${userState.data.producto.nombre}
+${userState.data.cantidad}kg - ${this.formatearPrecio(userState.data.total)}
+
+⚠️ *IMPORTANTE:*
+• Tienes *24 horas* para enviar el comprobante
+• Después de este tiempo, el pedido se cancelará
+• Para enviar el comprobante, escribe *menu* y selecciona la opción *5*
+
+*DATOS BANCARIOS:*
+*BCP:* ${config.business.banking.bcpCuenta}
+*CCI:* ${config.business.banking.cciCuenta}
+
+Guarda tu código: *${pedidoId}*
+
+_Escribe *menu* para volver al menú principal_`;
     }
     
     /**

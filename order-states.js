@@ -4,7 +4,8 @@
  */
 
 const ORDER_STATES = {
-    PENDING_VERIFICATION: 'Pendiente verificación',
+    PENDING_PAYMENT: 'Pendiente de pago',  // Pedido confirmado pero sin comprobante
+    PENDING_VERIFICATION: 'Pendiente verificación',  // Comprobante recibido, esperando validación
     PAYMENT_CONFIRMED: 'Pago confirmado',
     IN_PREPARATION: 'En preparación',
     ON_THE_WAY: 'En camino',
@@ -16,11 +17,13 @@ const ORDER_STATES = {
 
 // Estados que se consideran "pendientes" (requieren acción del cliente)
 const PENDING_STATES = [
+    ORDER_STATES.PENDING_PAYMENT,
     ORDER_STATES.PENDING_VERIFICATION
 ];
 
 // Estados que se consideran "activos" (en proceso)
 const ACTIVE_STATES = [
+    ORDER_STATES.PENDING_PAYMENT,
     ORDER_STATES.PENDING_VERIFICATION,
     ORDER_STATES.PAYMENT_CONFIRMED,
     ORDER_STATES.IN_PREPARATION,
