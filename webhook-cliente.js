@@ -6,8 +6,11 @@
 const express = require('express');
 const router = express.Router();
 
+console.log('🔧 [WEBHOOK-CLIENTE] Módulo cargado en:', new Date().toISOString());
+
 // Importar el servicio de mensajes existente
 const messageService = require('./message-service');
+console.log('✅ [WEBHOOK-CLIENTE] MessageService importado correctamente');
 
 // Middleware para verificar el token
 const verificarToken = (req, res, next) => {
@@ -25,10 +28,18 @@ const verificarToken = (req, res, next) => {
 // ============================================
 // RUTA: /webhook-cliente
 // ============================================
+console.log('📍 [WEBHOOK-CLIENTE] Registrando ruta POST /webhook-cliente');
+
 router.post('/webhook-cliente', verificarToken, async (req, res) => {
     try {
-        console.log('📨 Webhook cliente recibido');
-        console.log('Body:', JSON.stringify(req.body, null, 2));
+        console.log('\n===========================================');
+        console.log('📨 [WEBHOOK-CLIENTE] Solicitud recibida');
+        console.log('===========================================');
+        console.log('🕐 Timestamp:', new Date().toISOString());
+        console.log('📋 Method:', req.method);
+        console.log('🔗 URL:', req.originalUrl || req.url);
+        console.log('📦 Headers:', JSON.stringify(req.headers, null, 2));
+        console.log('📦 Body:', JSON.stringify(req.body, null, 2));
         
         const { tipo, cliente, estado, metadata } = req.body;
         
@@ -65,9 +76,10 @@ router.post('/webhook-cliente', verificarToken, async (req, res) => {
             numeroWhatsApp = '+' + numeroWhatsApp;
         }
         
-        console.log(`📱 Enviando notificación a: ${numeroWhatsApp}`);
-        console.log(`📋 Estado: ${estado.nuevo}`);
-        console.log(`🏢 Cliente: ${cliente.empresa || cliente.contacto}`);
+        console.log(`📱 [PROCESS] Enviando notificación a: ${numeroWhatsApp}`);
+        console.log(`📋 [PROCESS] Estado: ${estado.nuevo}`);
+        console.log(`🏢 [PROCESS] Cliente: ${cliente.empresa || cliente.contacto}`);
+        console.log(`🆔 [PROCESS] ID Cliente: ${cliente.id}`);
         
         // Construir mensaje según el estado
         let mensaje;
@@ -145,9 +157,10 @@ _Puedes registrarte nuevamente escribiendo *registro*_`;
         // ============================================
         try {
             // Usar el messageService existente del bot
+            console.log('📤 [SEND] Llamando a messageService.enviarMensaje()...');
             await messageService.enviarMensaje(numeroWhatsApp, mensaje);
             
-            console.log(`✅ Notificación enviada exitosamente`);
+            console.log(`✅ [SEND] Notificación enviada exitosamente a ${numeroWhatsApp}`);
             
             // Si fue aprobado, enviar catálogo después de 5 segundos
             if (estado.nuevo === 'Verificado') {
@@ -209,12 +222,18 @@ _"Quiero 5kg del café 1"_
 });
 
 // Endpoint de prueba
+console.log('📍 [WEBHOOK-CLIENTE] Registrando ruta GET /webhook-cliente/test');
+
 router.get('/webhook-cliente/test', (req, res) => {
+    console.log('🧪 [TEST] Endpoint de prueba llamado');
     res.json({
         status: 'ok',
         mensaje: 'Webhook de clientes funcionando',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        messageService: messageService ? 'disponible' : 'no disponible'
     });
 });
+
+console.log('✅ [WEBHOOK-CLIENTE] Rutas registradas: POST /webhook-cliente, GET /webhook-cliente/test');
 
 module.exports = router;
