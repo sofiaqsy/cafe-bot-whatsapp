@@ -30,7 +30,7 @@ const homeRoutes = require('./home-routes');
 const webhookRoute = require('./webhook-route');
 const adminRoute = require('./admin-route');
 const webhookEstado = require('./webhook-estado');
-const webhookCliente = require('./webhook-cliente');
+
 // Setup middleware
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
@@ -41,7 +41,7 @@ app.use('/', homeRoutes);
 app.use('/webhook', webhookRoute);
 app.use('/admin', adminRoute);
 app.use('/', webhookEstado); // Webhook de estado en la raíz
-app.use('/', webhookCliente); // Webhook de clientes
+
 // Error handling middleware
 app.use((error, req, res, next) => {
     console.error('❌ Error:', error);
