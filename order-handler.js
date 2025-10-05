@@ -50,6 +50,27 @@ class OrderHandler {
         
         console.log(`Estado: ${fullState.step}, Mensaje: ${body}`);
         
+        // VERIFICACIÓN GLOBAL: Cliente con pedidos pendientes de verificación
+        const pedidosUsuario = stateManager.getUserOrders(from);
+        const pedidosPendientesVerif = pedidosUsuario.filter(p => {
+            const estado = p.estado || p.status || '';
+            return estado === 'Pendiente verificación' || estado === 'Pendiente verificacion';
+        });
+        
+        // Si tiene pedidos pendientes de verificación, mostrar mensaje y salir
+        if (pedidosPendientesVerif.length > 0) {
+            const pedido = pedidosPendientesVerif[0];
+            const respuestaPendiente = `Tu pedido *${pedido.id}* está *EN PROCESO DE VERIFICACIÓN*
+
+Estamos validando tu información.
+Te notificaremos cuando tu pedido esté activo.
+
+*Tiempo estimado:* 24-48 horas
+
+Gracias por tu paciencia.`;
+            return await messageService.sendMessage(from, respuestaPendiente);
+        }
+        
         // Comando global: MENÚ
         if (mensaje.toLowerCase() === 'menu' || mensaje.toLowerCase() === 'menú') {
             const todosLosPedidos = stateManager.getUserOrders(from);
@@ -112,8 +133,28 @@ class OrderHandler {
                     mensaje.toLowerCase().includes('buenas') ||
                     mensaje.toLowerCase().includes('buenos')) {
                     
-                    // IMPORTANTE: Obtener pedidos activos y mostrarlos en el menú
+                    // Verificar si tiene pedidos en estado Pendiente verificación
                     const todosLosPedidos = stateManager.getUserOrders(from);
+                    const pedidosPendientesVerificacion = todosLosPedidos.filter(p => {
+                        const estado = p.estado || p.status || '';
+                        return estado === 'Pendiente verificación';
+                    });
+                    
+                    // Si tiene pedidos pendientes de verificación, mostrar mensaje especial
+                    if (pedidosPendientesVerificacion.length > 0) {
+                        const pedido = pedidosPendientesVerificacion[0];
+                        respuesta = `Tu pedido *${pedido.id}* está *EN PROCESO DE VERIFICACIÓN*
+
+Estamos validando tu información.
+Te notificaremos cuando tu pedido esté activo.
+
+*Tiempo estimado:* 24-48 horas
+
+Gracias por tu paciencia.`;
+                        break;
+                    }
+                    
+                    // IMPORTANTE: Obtener pedidos activos y mostrarlos en el menú
                     const pedidosActivos = todosLosPedidos.filter(p => {
                         const estado = p.estado || p.status || '';
                         return estado !== 'Completado' && 
