@@ -91,19 +91,6 @@ class SheetsService {
             const response = await this.sheets.spreadsheets.values.append({
                 spreadsheetId: this.spreadsheetId,
                 range: 'Clientes!A:P', // Columnas A hasta P (incluye Estado)
-                datosCliente.ciudad || 'Lima',
-                datosCliente.fechaRegistro || new Date().toLocaleDateString('es-PE'),
-                datosCliente.ultimaCompra || new Date().toLocaleDateString('es-PE'),
-                datosCliente.totalPedidos || 1,
-                datosCliente.totalComprado || 0,
-                datosCliente.totalKg || 1,
-                datosCliente.notas || '',
-                datosCliente.estadoCliente || 'Pendiente' // Estados: Verificado, Pendiente, Rechazado, Prospecto
-            ]];
-
-            const response = await this.sheets.spreadsheets.values.append({
-                spreadsheetId: this.spreadsheetId,
-                range: 'Clientes!A:P', // Ahora hasta columna P para incluir Estado
                 valueInputOption: 'USER_ENTERED',
                 resource: {
                     values: valores
