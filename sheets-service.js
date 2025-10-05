@@ -68,7 +68,7 @@ class SheetsService {
 
         try {
             // Preparar datos para insertar
-            // Formato esperado: [ID, WhatsApp, Empresa, Contacto, Telefono, Email, Direccion, Distrito, Ciudad, FechaRegistro, UltimaCompra, TotalPedidos, TotalComprado, TotalKg, Notas]
+            // Formato esperado: [ID, WhatsApp, Empresa, Contacto, Telefono, Email, Direccion, Distrito, Ciudad, FechaRegistro, UltimaCompra, TotalPedidos, TotalComprado, TotalKg, Notas, EstadoCliente]
             const valores = [[
                 datosCliente.id || `CLI-${Date.now().toString().slice(-6)}`,
                 datosCliente.whatsapp || '',
@@ -84,12 +84,26 @@ class SheetsService {
                 datosCliente.totalPedidos || 1,
                 datosCliente.totalComprado || 0,
                 datosCliente.totalKg || 1,
-                datosCliente.notas || ''
+                datosCliente.notas || '',
+                datosCliente.estado || 'Pendiente' // Nueva columna Estado
             ]];
 
             const response = await this.sheets.spreadsheets.values.append({
                 spreadsheetId: this.spreadsheetId,
-                range: 'Clientes!A:O', // Columnas A hasta O
+                range: 'Clientes!A:P', // Columnas A hasta P (incluye Estado)
+                datosCliente.ciudad || 'Lima',
+                datosCliente.fechaRegistro || new Date().toLocaleDateString('es-PE'),
+                datosCliente.ultimaCompra || new Date().toLocaleDateString('es-PE'),
+                datosCliente.totalPedidos || 1,
+                datosCliente.totalComprado || 0,
+                datosCliente.totalKg || 1,
+                datosCliente.notas || '',
+                datosCliente.estadoCliente || 'Pendiente' // Estados: Verificado, Pendiente, Rechazado, Prospecto
+            ]];
+
+            const response = await this.sheets.spreadsheets.values.append({
+                spreadsheetId: this.spreadsheetId,
+                range: 'Clientes!A:P', // Ahora hasta columna P para incluir Estado
                 valueInputOption: 'USER_ENTERED',
                 resource: {
                     values: valores

@@ -206,8 +206,7 @@ class CafeGratisHandler {
                         state.data.nombreContacto = message;
                         respuesta = `Contacto: ${message}\n\n` +
                                    `PASO 6 DE 6: TELÉFONO DE CONTACTO\n\n` +
-                                   `¿Cuál es tu número de teléfono?\n` +
-                                   `(Incluye el código de país, ejemplo: 51999888777)`;
+                                   `¿Cuál es tu número de teléfono?`;
                         state.step = 'promo_telefono';
                     }
                     break;
@@ -332,7 +331,8 @@ class CafeGratisHandler {
                 totalPedidos: 1,
                 totalComprado: 0,
                 totalKg: 1,
-                notas: `Muestra solicitada. Foto: ${urlFotoDrive || datos.fotoUrl || 'Sin foto'}`
+                notas: `Muestra solicitada. Foto: ${urlFotoDrive || datos.fotoUrl || 'Sin foto'}`,
+                estadoCliente: 'Pendiente' // Estado inicial para validación
             };
             
             // Intentar guardar en Google Sheets - Clientes
