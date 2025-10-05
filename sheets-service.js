@@ -4,13 +4,12 @@
  */
 
 const { google } = require('googleapis');
-const config = require('./config');
 
 class SheetsService {
     constructor() {
         this.sheets = null;
         this.auth = null;
-        this.spreadsheetId = config.google.spreadsheetId;
+        this.spreadsheetId = null; // Se asignará en initialize()
         this.initialized = false;
     }
 
