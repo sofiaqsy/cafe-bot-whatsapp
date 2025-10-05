@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const orderHandler = require('./order-handler');
+const cafeGratisHandler = require('./cafe-gratis-handler');
 const messageService = require('./message-service');
 const stateManager = require('./state-manager');
 
@@ -29,6 +30,31 @@ router.post('/', async (req, res) => {
         }
         
         // Process message
+        // Primero intentar con el handler de café gratis
+        const mensajeLimpio = Body ? Body.trim().toUpperCase() : '';
+        
+        // Verificar si es comando de café gratis
+        if (mensajeLimpio === 'CAFEGRATUITO' || mensajeLimpio === 'CAFE1KG') {
+            const resultado = await cafeGratisHandler.procesarMensajePromo(From, Body, { mediaUrl: mediaUrl });
+            if (resultado) {
+                await messageService.sendMessage(From, resultado.respuesta);
+                res.status(200).send('OK');
+                return;
+            }
+        }
+        
+        // Verificar si está en flujo de promoción
+        const state = stateManager.getState(From);
+        if (state && state.step && state.step.startsWith('promo_')) {
+            const resultado = await cafeGratisHandler.procesarMensajePromo(From, Body, { mediaUrl: mediaUrl });
+            if (resultado) {
+                await messageService.sendMessage(From, resultado.respuesta);
+                res.status(200).send('OK');
+                return;
+            }
+        }
+        
+        // Si no es promoción, procesar con el handler normal
         await orderHandler.handleMessage(From, Body, mediaUrl);
         
         // Send acknowledgment to Twilio
