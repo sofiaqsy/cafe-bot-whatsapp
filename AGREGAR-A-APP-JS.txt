@@ -1,0 +1,33 @@
+// ============================================
+// AGREGAR ESTE CÓDIGO A tu app.js
+// Después de la línea: const webhookEstado = require('./webhook-estado');
+// ============================================
+
+// Agregar este require:
+const webhookCliente = require('./webhook-cliente');
+
+// Y agregar esta ruta después de: app.use('/', webhookEstado);
+app.use('/', webhookCliente); // Webhook de clientes
+
+// ============================================
+// El archivo completo de app.js debería verse así en esa sección:
+// ============================================
+
+// Import routes
+const homeRoutes = require('./home-routes');
+const webhookRoute = require('./webhook-route');
+const adminRoute = require('./admin-route');
+const webhookEstado = require('./webhook-estado');
+const webhookCliente = require('./webhook-cliente'); // NUEVA LÍNEA
+
+// Setup middleware
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
+app.use(express.static('public'));
+
+// Setup routes
+app.use('/', homeRoutes);
+app.use('/webhook', webhookRoute);
+app.use('/admin', adminRoute);
+app.use('/', webhookEstado); // Webhook de estado en la raíz
+app.use('/', webhookCliente); // NUEVA LÍNEA - Webhook de clientes
