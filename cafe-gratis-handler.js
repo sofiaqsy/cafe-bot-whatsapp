@@ -7,6 +7,9 @@ const config = require('./config');
 const sheetsService = require('./sheets-service');
 const messageService = require('./message-service');
 const stateManager = require('./state-manager');
+const googleDriveService = require('./google-drive-service');
+const driveService = require('./drive-service');
+const notificationService = require('./notification-service');
 
 // Distritos permitidos para la promoción
 const DISTRITOS_PERMITIDOS = [
@@ -283,18 +286,46 @@ class CafeGratisHandler {
             // Limpiar número de WhatsApp (solo el número)
             const numeroWhatsApp = whatsapp.replace('whatsapp:', '').replace('+', '');
             
-            // 1. Por ahora, guardamos solo en memoria
-            // TODO: Integrar con Google Sheets cuando se implemente sheets-service
-            
-            // await sheetsService.agregarCliente(datosCliente);
+            // 1. Subir foto a Google Drive si existe
+            let urlFotoDrive = '';
+            if (datos.fotoUrl) {
+                try {
+                    console.log('📸 Subiendo foto de cafetería a Google Drive...');
+                    const googleDriveService = require('./google-drive-service');
+                    
+                    // Inicializar si no está inicializado
+                    if (!googleDriveService.initialized && !googleDriveService.useLocalStorage) {
+                        await googleDriveService.initialize();
+                    }
+                    
+                    const nombreArchivo = `muestra_${codigoCliente}_${datos.nombreCafeteria.replace(/\s+/g, '_')}.jpg`;
+                    const resultadoSubida = await googleDriveService.subirImagenDesdeURL(
+                        datos.fotoUrl, 
+                        nombreArchivo,
+                        {
+                            descripcion: `Foto de fachada - ${datos.nombreCafeteria}`,
+                            distrito: datos.distrito,
+                            cliente: codigoCliente
+                        }
+                    );
+                    
+                    if (resultadoSubida && resultadoSubida.webViewLink) {
+                        urlFotoDrive = resultadoSubida.webViewLink;
+                        console.log('✅ Foto subida exitosamente a Drive');
+                    }
+                } catch (errorDrive) {
+                    console.error('Error subiendo foto a Drive:', errorDrive);
+                    urlFotoDrive = datos.fotoUrl; // Mantener URL original si falla
+                }
+            }
             
             // 2. Guardar en Google Sheets y memoria
             const datosParaClientes = {
                 id: codigoCliente,
-                whatsapp: numeroWhatsApp, // Solo el número
+                whatsapp: numeroWhatsApp,
                 empresa: datos.nombreCafeteria,
                 contacto: datos.nombreContacto,
-                telefono: datos.telefonoContacto || numeroWhatsApp, // Usar teléfono del contacto
+                telefono: datos.telefonoContacto || numeroWhatsApp,
                 email: '',
                 direccion: datos.direccion,
                 distrito: datos.distrito,
@@ -304,7 +335,7 @@ class CafeGratisHandler {
                 totalPedidos: 1,
                 totalComprado: 0,
                 totalKg: 1,
-                notas: `Muestra solicitada. Foto: ${datos.fotoUrl || 'Sin foto'}`
+                notas: `Muestra solicitada. Foto: ${urlFotoDrive || datos.fotoUrl || 'Sin foto'}`
             };
             
             // Intentar guardar en Google Sheets - Clientes
@@ -333,8 +364,8 @@ class CafeGratisHandler {
                 metodoPago: 'Promoción',
                 estado: 'Pendiente verificación',
                 comprobante: 'MUESTRA GRATIS',
-                observaciones: `Distrito: ${datos.distrito}. URL Foto: ${datos.fotoUrl || 'Sin foto'}`,
-                whatsapp: numeroWhatsApp, // Solo el número
+                observaciones: `Distrito: ${datos.distrito}. URL Foto: ${urlFotoDrive || datos.fotoUrl || 'Sin foto'}`,
+                whatsapp: numeroWhatsApp,
                 tipo: 'MUESTRA'
             };
             
@@ -345,7 +376,59 @@ class CafeGratisHandler {
                 console.error('Error guardando pedido en Sheets:', error);
             }
             
-            // Por ahora guardar en memoria para tracking
+            // 3. Enviar notificación a administradores
+            try {
+                // Inicializar servicio de notificaciones si no está inicializado
+                const NotificationService = require('./notification-service');
+                const twilioClient = messageService.client || null;
+                const twilioPhone = process.env.TWILIO_PHONE_NUMBER || '';
+                const notificationService = new NotificationService(twilioClient, twilioPhone);
+                
+                const mensajeNotificacion = `⚠️ NUEVA SOLICITUD DE MUESTRA\n` +
+                    `━━━━━━━━━━━━━━━━━\n\n` +
+                    `VALIDACIÓN REQUERIDA\n\n` +
+                    `Cafetería: ${datos.nombreCafeteria}\n` +
+                    `Contacto: ${datos.nombreContacto}\n` +
+                    `Teléfono: ${datos.telefonoContacto}\n` +
+                    `Distrito: ${datos.distrito}\n` +
+                    `Dirección: ${datos.direccion}\n` +
+                    `Foto: ${urlFotoDrive ? 'Subida a Drive' : 'Pendiente'}\n\n` +
+                    `ACCIONES REQUERIDAS:\n` +
+                    `1. Verificar foto de fachada\n` +
+                    `2. Validar datos del negocio\n` +
+                    `3. Confirmar distrito de cobertura\n` +
+                    `4. Aprobar o rechazar solicitud\n\n` +
+                    `Código: ${codigoPedido}\n` +
+                    `${urlFotoDrive ? `\nVer foto: ${urlFotoDrive}` : ''}\n\n` +
+                    `Para aprobar, actualizar estado en Google Sheets`;
+                
+                // Enviar a grupos configurados
+                if (notificationService.gruposConfigured) {
+                    // Enviar notificación al grupo admin si está configurado
+                    if (notificationService.grupos.admin) {
+                        await notificationService.enviarNotificacion(
+                            notificationService.grupos.admin, 
+                            mensajeNotificacion
+                        );
+                        console.log('📨 Notificación enviada al grupo admin');
+                    }
+                    
+                    // También enviar al admin personal si está configurado
+                    if (notificationService.grupos.adminPersonal) {
+                        await notificationService.enviarNotificacion(
+                            notificationService.grupos.adminPersonal,
+                            mensajeNotificacion
+                        );
+                        console.log('📨 Notificación enviada al admin personal');
+                    }
+                } else {
+                    console.log('⚠️ No hay grupos configurados para notificaciones');
+                }
+            } catch (errorNotif) {
+                console.error('Error enviando notificación:', errorNotif);
+            }
+            
+            // Guardar en memoria para tracking
             const pedidoGratis = {
                 id: codigoPedido,
                 ...datosParaClientes,
@@ -361,9 +444,6 @@ class CafeGratisHandler {
                 timestamp: new Date().toISOString()
             };
             
-            // await sheetsService.agregarPedido(datosPedido);
-            
-            // 3. Guardar en memoria para tracking
             stateManager.addConfirmedOrder(codigoPedido, pedidoGratis);
             
             console.log('🎆 Pedido de promoción creado:', codigoPedido);
