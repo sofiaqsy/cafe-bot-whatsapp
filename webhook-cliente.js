@@ -101,8 +101,7 @@ Tu registro ha sido APROBADO.
 Recibirás una muestra de nuestro café para que puedas conocer la calidad de nuestros productos.
 
 *Empresa:* ${cliente.empresa || 'No especificada'}
-*Contacto:* ${cliente.contacto || 'Cliente'}
-*ID Cliente:* ${cliente.id}`;
+*Contacto:* ${cliente.contacto || 'Cliente'}`;
             
         } else if (estado.nuevo === 'Rechazado') {
             // ============================================
