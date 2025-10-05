@@ -94,59 +94,33 @@ router.post('/webhook-cliente', verificarToken, async (req, res) => {
             // ============================================
             // MENSAJE DE CLIENTE APROBADO
             // ============================================
-            mensaje = `🎉 *¡FELICITACIONES!*
+            mensaje = `*FELICITACIONES*
 
-Tu registro ha sido *APROBADO* ✅
+Tu registro ha sido APROBADO.
+
+Recibirás una muestra de nuestro café para que puedas conocer la calidad de nuestros productos.
 
 *Empresa:* ${cliente.empresa || 'No especificada'}
 *Contacto:* ${cliente.contacto || 'Cliente'}
-*ID Cliente:* ${cliente.id}
-
-📋 *BENEFICIOS:*
-✓ Acceso al catálogo completo
-✓ Precios especiales
-✓ Atención prioritaria
-✓ Seguimiento en tiempo real
-
-🛍️ *CÓMO HACER PEDIDOS:*
-1️⃣ Escribe *catálogo* o *menú*
-2️⃣ Selecciona tu café
-3️⃣ Indica la cantidad
-4️⃣ Confirma tu pedido
-
-💬 *COMANDOS:*
-• *catálogo* - Ver productos
-• *pedido* - Hacer pedido
-• *estado* - Ver mis pedidos
-• *ayuda* - Más opciones
-
-¡Bienvenido a nuestra familia cafetera! ☕`;
+*ID Cliente:* ${cliente.id}`;
             
         } else if (estado.nuevo === 'Rechazado') {
             // ============================================
             // MENSAJE DE CLIENTE RECHAZADO
             // ============================================
-            mensaje = `📋 *ACTUALIZACIÓN DE TU REGISTRO*
+            mensaje = `*ACTUALIZACIÓN DE TU REGISTRO*
 
 Hola ${cliente.contacto || 'estimado cliente'},
 
 Tu registro no ha podido ser aprobado en este momento.
 
-📝 *POSIBLES RAZONES:*
-• Información incompleta
-• Zona fuera de cobertura
-• Foto del local no clara
-• Datos no verificables
+*POSIBLES RAZONES:*
+- Información incompleta
+- Zona fuera de cobertura
+- Foto del local no clara
+- Datos no verificables
 
-🔄 *¿QUÉ HACER?*
-1. Verifica tus datos
-2. Envía foto clara del local
-3. Confirma tu ubicación
-
-📞 *¿NECESITAS AYUDA?*
-Contáctanos directamente.
-
-_Puedes registrarte nuevamente escribiendo *registro*_`;
+Puedes registrarte nuevamente escribiendo: registro`;
             
         } else {
             // Estado no reconocido
@@ -173,39 +147,7 @@ _Puedes registrarte nuevamente escribiendo *registro*_`;
             
             console.log(`✅ [SEND] Notificación enviada exitosamente a ${numeroWhatsApp}`);
             
-            // Si fue aprobado, enviar catálogo después de 5 segundos
-            if (estado.nuevo === 'Verificado') {
-                setTimeout(async () => {
-                    try {
-                        const mensajeCatalogo = `☕ *CATÁLOGO DE CAFÉS*
-
-*1. Café Premium* - S/45/kg
-   Grano 100% arábica
-
-*2. Café Orgánico* - S/50/kg
-   Certificado orgánico
-
-*3. Café Especial* - S/55/kg
-   Notas frutales
-
-*4. House Blend* - S/40/kg
-   Mezcla de la casa
-
-*5. Descafeinado* - S/42/kg
-   Sin cafeína
-
-📝 Para ordenar escribe:
-_"Quiero 5kg del café 1"_
-
-🚚 Delivery gratis > 10kg`;
-                        
-                        await messageService.sendMessage(numeroWhatsApp, mensajeCatalogo);
-                        console.log('📋 Catálogo enviado');
-                    } catch (err) {
-                        console.error('Error enviando catálogo:', err);
-                    }
-                }, 5000);
-            }
+            // NO enviar catálogo adicional - solo un mensaje
             
             res.status(200).json({ 
                 success: true,
