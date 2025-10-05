@@ -26,25 +26,35 @@ class CafeGratisHandler {
      */
     async verificarPromocionPrevia(whatsapp) {
         try {
-            // Por ahora, verificar en memoria local
-            // TODO: Implementar verificación en Google Sheets
             const numeroLimpio = whatsapp.replace('whatsapp:', '').replace('+', '');
             
-            // Verificar si ya existe en los pedidos confirmados
+            // Primero verificar en Google Sheets si existe el cliente
+            const existeEnSheets = await sheetsService.verificarClienteExiste(numeroLimpio);
+            
+            if (existeEnSheets) {
+                console.log(`⚠️ Cliente ${numeroLimpio} ya existe en Google Sheets`);
+                return true;
+            }
+            
+            // También verificar en memoria local
             const pedidosAnteriores = stateManager.getUserOrders(whatsapp);
             
             if (pedidosAnteriores && pedidosAnteriores.length > 0) {
                 // Verificar si algún pedido fue gratuito (total = 0)
                 const tienePromoPrevia = pedidosAnteriores.some(pedido => {
-                    return parseFloat(pedido.total) === 0 || pedido.total === 0 || pedido.tipo === 'PROMOCION';
+                    return parseFloat(pedido.total) === 0 || pedido.total === 0 || pedido.tipo === 'PROMOCION' || pedido.tipo === 'MUESTRA';
                 });
                 
-                return tienePromoPrevia;
+                if (tienePromoPrevia) {
+                    console.log(`⚠️ Cliente ${whatsapp} ya recibió muestra (memoria local)`);
+                    return true;
+                }
             }
             
             return false;
         } catch (error) {
             console.error('Error verificando promoción previa:', error);
+            // En caso de error, permitir continuar
             return false;
         }
     }
@@ -67,10 +77,11 @@ class CafeGratisHandler {
                 
                 if (yaRecibio) {
                     return {
-                        respuesta: `⚠️ *LO SENTIMOS*\n\nYa has recibido tu café gratuito anteriormente.\n\n` +
+                        respuesta: `LO SENTIMOS\n\n` +
+                                  `Ya has recibido tu muestra gratuita anteriormente.\n\n` +
                                   `Esta promoción es válida una sola vez por cafetería.\n\n` +
-                                  `*¿Deseas realizar un pedido regular?*\n` +
-                                  `Escribe *MENU* para ver nuestro catálogo.`,
+                                  `¿Deseas realizar un pedido regular?\n\n` +
+                                  `Escribe MENU para ver nuestro catálogo.`,
                         state: { step: 'inicio', data: {} }
                     };
                 }

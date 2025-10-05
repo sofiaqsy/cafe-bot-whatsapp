@@ -155,6 +155,47 @@ class SheetsService {
             return false;
         }
     }
+    /**
+     * Verificar si un cliente ya existe en Google Sheets
+     */
+    async verificarClienteExiste(numeroWhatsApp) {
+        if (!this.initialized) {
+            console.log('⚠️ Sheets no inicializado - no se puede verificar cliente');
+            return false;
+        }
+
+        try {
+            // Buscar en la columna B (WhatsApp) de la hoja Clientes
+            const response = await this.sheets.spreadsheets.values.get({
+                spreadsheetId: this.spreadsheetId,
+                range: 'Clientes!B:B' // Columna WhatsApp
+            });
+
+            const valores = response.data.values || [];
+            
+            // Buscar si el número existe (ignorar la primera fila que es el header)
+            for (let i = 1; i < valores.length; i++) {
+                const whatsappEnSheet = valores[i][0];
+                if (whatsappEnSheet) {
+                    // Limpiar y comparar
+                    const numeroLimpio = whatsappEnSheet.toString().replace(/[^0-9]/g, '');
+                    const numeroBuscado = numeroWhatsApp.toString().replace(/[^0-9]/g, '');
+                    
+                    if (numeroLimpio === numeroBuscado || numeroLimpio.includes(numeroBuscado) || numeroBuscado.includes(numeroLimpio)) {
+                        console.log(`✅ Cliente encontrado en Sheets: ${numeroWhatsApp}`);
+                        return true;
+                    }
+                }
+            }
+            
+            console.log(`ℹ️ Cliente no encontrado en Sheets: ${numeroWhatsApp}`);
+            return false;
+        } catch (error) {
+            console.error('❌ Error verificando cliente en Sheets:', error.message);
+            // En caso de error, retornar false para permitir continuar
+            return false;
+        }
+    }
 }
 
 module.exports = new SheetsService();
