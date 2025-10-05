@@ -67,14 +67,20 @@ router.post('/webhook-cliente', verificarToken, async (req, res) => {
             });
         }
         
-        // Limpiar número de WhatsApp
+        // Formatear número para Twilio - DEBE mantener el formato whatsapp:+51...
         let numeroWhatsApp = cliente.whatsapp;
-        if (numeroWhatsApp.startsWith('whatsapp:')) {
-            numeroWhatsApp = numeroWhatsApp.replace('whatsapp:', '');
+        console.log('📱 [PHONE] Número recibido:', numeroWhatsApp);
+        
+        // Twilio requiere el formato whatsapp:+51...
+        // NO remover el prefijo whatsapp:
+        if (!numeroWhatsApp.startsWith('whatsapp:')) {
+            // Si no tiene whatsapp:, agregarlo
+            if (!numeroWhatsApp.startsWith('+')) {
+                numeroWhatsApp = '+' + numeroWhatsApp;
+            }
+            numeroWhatsApp = 'whatsapp:' + numeroWhatsApp;
         }
-        if (!numeroWhatsApp.startsWith('+')) {
-            numeroWhatsApp = '+' + numeroWhatsApp;
-        }
+        console.log('📱 [PHONE] Formato para Twilio:', numeroWhatsApp);
         
         console.log(`📱 [PROCESS] Enviando notificación a: ${numeroWhatsApp}`);
         console.log(`📋 [PROCESS] Estado: ${estado.nuevo}`);
@@ -156,8 +162,13 @@ _Puedes registrarte nuevamente escribiendo *registro*_`;
         // ENVIAR MENSAJE USANDO EL SERVICIO EXISTENTE
         // ============================================
         try {
-            // Usar el messageService existente del bot
+            // Verificar el número del emisor (from) de Twilio
+            const fromNumber = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+            console.log('📤 [SEND] From (Twilio):', fromNumber);
+            console.log('📤 [SEND] To (Cliente):', numeroWhatsApp);
             console.log('📤 [SEND] Llamando a messageService.sendMessage()...');
+            
+            // Usar el messageService existente del bot
             await messageService.sendMessage(numeroWhatsApp, mensaje);
             
             console.log(`✅ [SEND] Notificación enviada exitosamente a ${numeroWhatsApp}`);
