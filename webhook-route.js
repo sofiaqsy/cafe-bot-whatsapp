@@ -34,7 +34,9 @@ router.post('/', async (req, res) => {
         const mensajeLimpio = Body ? Body.trim().toUpperCase() : '';
         
         // Verificar si es comando de café gratis
-        if (mensajeLimpio === 'CAFEGRATUITO' || mensajeLimpio === 'CAFE1KG') {
+        const triggersProm = ['SOLICITO MUESTRA', 'SOLICITAR MUESTRA', 'MUESTRA GRATIS', 'PROMOCAFE', 'PROMO1KG'];
+        
+        if (triggersProm.some(trigger => mensajeLimpio.includes(trigger))) {
             const resultado = await cafeGratisHandler.procesarMensajePromo(From, Body, { mediaUrl: mediaUrl });
             if (resultado) {
                 await messageService.sendMessage(From, resultado.respuesta);

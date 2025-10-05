@@ -57,9 +57,11 @@ class CafeGratisHandler {
             // Obtener estado actual
             let state = stateManager.getState(from);
             
-            // Si el mensaje es CAFEGRATUITO, iniciar flujo
+            // Si el mensaje es SOLICITO MUESTRA o variantes, iniciar flujo
             const mensajeLimpio = message.trim().toUpperCase();
-            if (mensajeLimpio === 'CAFEGRATUITO' || mensajeLimpio === 'CAFE1KG') {
+            const triggersProm = ['SOLICITO MUESTRA', 'SOLICITAR MUESTRA', 'MUESTRA GRATIS', 'PROMOCAFE', 'PROMO1KG'];
+            
+            if (triggersProm.some(trigger => mensajeLimpio.includes(trigger))) {
                 // Verificar si ya recibió promoción
                 const yaRecibio = await this.verificarPromocionPrevia(from);
                 
