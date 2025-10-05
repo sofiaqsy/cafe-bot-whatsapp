@@ -157,8 +157,8 @@ _Puedes registrarte nuevamente escribiendo *registro*_`;
         // ============================================
         try {
             // Usar el messageService existente del bot
-            console.log('📤 [SEND] Llamando a messageService.enviarMensaje()...');
-            await messageService.enviarMensaje(numeroWhatsApp, mensaje);
+            console.log('📤 [SEND] Llamando a messageService.sendMessage()...');
+            await messageService.sendMessage(numeroWhatsApp, mensaje);
             
             console.log(`✅ [SEND] Notificación enviada exitosamente a ${numeroWhatsApp}`);
             
@@ -188,7 +188,7 @@ _"Quiero 5kg del café 1"_
 
 🚚 Delivery gratis > 10kg`;
                         
-                        await messageService.enviarMensaje(numeroWhatsApp, mensajeCatalogo);
+                        await messageService.sendMessage(numeroWhatsApp, mensajeCatalogo);
                         console.log('📋 Catálogo enviado');
                     } catch (err) {
                         console.error('Error enviando catálogo:', err);
