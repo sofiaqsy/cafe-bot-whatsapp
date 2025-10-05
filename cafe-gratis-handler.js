@@ -18,7 +18,7 @@ const DISTRITOS_PERMITIDOS = [
 
 class CafeGratisHandler {
     constructor() {
-        this.pasosTotales = 5; // Solo 5 pasos sin RUC ni horario
+        this.pasosTotales = 6; // 6 pasos incluyendo teléfono
     }
 
     /**
@@ -99,7 +99,7 @@ class CafeGratisHandler {
                                `━━━━━━━━━━━━━━━━━\n\n` +
                                `Obtén 1kg de Café Premium para tu cafetería.\n\n` +
                                `Para validar tu solicitud, necesitamos algunos datos.\n\n` +
-                               `PASO 1 DE 5: NOMBRE DE LA CAFETERÍA\n\n` +
+                               `PASO 1 DE 6: NOMBRE DE LA CAFETERÍA\n\n` +
                                `Por favor, escribe el nombre completo de tu cafetería:`;
                     state.step = 'promo_nombre_cafeteria';
                     break;
@@ -110,7 +110,7 @@ class CafeGratisHandler {
                     } else {
                         state.data.nombreCafeteria = message;
                         respuesta = `Registrado: ${message}\n\n` +
-                                   `PASO 2 DE 5: DISTRITO\n\n` +
+                                   `PASO 2 DE 6: DISTRITO\n\n` +
                                    `Selecciona tu distrito:\n\n` +
                                    `1. Miraflores\n` +
                                    `2. San Isidro\n` +
@@ -151,7 +151,7 @@ class CafeGratisHandler {
                             state = { step: 'inicio', data: {} };
                         } else {
                             respuesta = `Distrito: ${state.data.distrito}\n\n` +
-                                       `PASO 3 DE 5: DIRECCIÓN\n\n` +
+                                       `PASO 3 DE 6: DIRECCIÓN\n\n` +
                                        `Escribe la dirección completa de tu cafetería:\n` +
                                        `(Incluye calle, número y referencias)`;
                             state.step = 'promo_direccion';
@@ -165,7 +165,7 @@ class CafeGratisHandler {
                     } else {
                         state.data.direccion = message;
                         respuesta = `Dirección registrada\n\n` +
-                                   `PASO 4 DE 5: VERIFICACIÓN\n\n` +
+                                   `PASO 4 DE 6: VERIFICACIÓN\n\n` +
                                    `Para verificar tu cafetería necesitamos:\n\n` +
                                    `Envía una foto de la FACHADA de tu cafetería\n\n` +
                                    `(Debe verse claramente el nombre del local)`;
@@ -180,7 +180,7 @@ class CafeGratisHandler {
                     } else {
                         state.data.fotoUrl = mediaUrl;
                         respuesta = `Foto recibida\n\n` +
-                                   `PASO 5 DE 5: DATOS DE CONTACTO\n\n` +
+                                   `PASO 5 DE 6: DATOS DE CONTACTO\n\n` +
                                    `¿Cuál es tu nombre completo?\n` +
                                    `(Propietario o encargado)`;
                         state.step = 'promo_contacto';
@@ -192,7 +192,22 @@ class CafeGratisHandler {
                         respuesta = `Por favor, ingresa tu nombre completo.`;
                     } else {
                         state.data.nombreContacto = message;
-                        // Sin horario ni RUC, procesar directamente
+                        respuesta = `Contacto: ${message}\n\n` +
+                                   `PASO 6 DE 6: TELÉFONO DE CONTACTO\n\n` +
+                                   `¿Cuál es tu número de teléfono?\n` +
+                                   `(Incluye el código de país, ejemplo: 51999888777)`;
+                        state.step = 'promo_telefono';
+                    }
+                    break;
+
+                case 'promo_telefono':
+                    // Validar y limpiar teléfono
+                    const telefonoLimpio = message.replace(/[^0-9]/g, '');
+                    
+                    if (!telefonoLimpio || telefonoLimpio.length < 8) {
+                        respuesta = `Por favor, ingresa un número de teléfono válido.`;
+                    } else {
+                        state.data.telefonoContacto = telefonoLimpio;
                         
                         // Procesar y guardar
                         const resultado = await this.procesarRegistroGratis(from, state.data);
@@ -204,7 +219,8 @@ class CafeGratisHandler {
                                        `RESUMEN:\n` +
                                        `Cafetería: ${state.data.nombreCafeteria}\n` +
                                        `Distrito: ${state.data.distrito}\n` +
-                                       `Contacto: ${state.data.nombreContacto}\n\n` +
+                                       `Contacto: ${state.data.nombreContacto}\n` +
+                                       `Teléfono: ${state.data.telefonoContacto}\n\n` +
                                        `Tu muestra:\n` +
                                        `1kg Café Premium Orgánico\n\n` +
                                        `PRÓXIMOS PASOS:\n` +
@@ -253,8 +269,8 @@ class CafeGratisHandler {
             const codigoCliente = `CLI-${timestamp.toString().slice(-6)}`;
             const codigoPedido = `CAF-${timestamp.toString().slice(-6)}`;
             
-            // Limpiar número de WhatsApp
-            const numeroLimpio = whatsapp.replace('whatsapp:', '').replace('+', '');
+            // Limpiar número de WhatsApp (solo el número)
+            const numeroWhatsApp = whatsapp.replace('whatsapp:', '').replace('+', '');
             
             // 1. Por ahora, guardamos solo en memoria
             // TODO: Integrar con Google Sheets cuando se implemente sheets-service
@@ -264,10 +280,10 @@ class CafeGratisHandler {
             // 2. Guardar en Google Sheets y memoria
             const datosParaClientes = {
                 id: codigoCliente,
-                whatsapp: whatsapp,
+                whatsapp: numeroWhatsApp, // Solo el número
                 empresa: datos.nombreCafeteria,
                 contacto: datos.nombreContacto,
-                telefono: numeroLimpio,
+                telefono: datos.telefonoContacto || numeroWhatsApp, // Usar teléfono del contacto
                 email: '',
                 direccion: datos.direccion,
                 distrito: datos.distrito,
@@ -295,7 +311,7 @@ class CafeGratisHandler {
                 hora: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true }),
                 empresa: datos.nombreCafeteria,
                 contacto: datos.nombreContacto,
-                telefono: numeroLimpio,
+                telefono: datos.telefonoContacto || numeroWhatsApp,
                 direccion: datos.direccion,
                 producto: 'Café Orgánico Premium',
                 cantidad: 1,
@@ -307,7 +323,7 @@ class CafeGratisHandler {
                 estado: 'Pendiente verificación',
                 comprobante: 'MUESTRA GRATIS',
                 observaciones: `Distrito: ${datos.distrito}. URL Foto: ${datos.fotoUrl || 'Sin foto'}`,
-                whatsapp: whatsapp,
+                whatsapp: numeroWhatsApp, // Solo el número
                 tipo: 'MUESTRA'
             };
             
