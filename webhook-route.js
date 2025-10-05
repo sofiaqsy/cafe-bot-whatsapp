@@ -46,7 +46,7 @@ router.post('/', async (req, res) => {
         }
         
         // Verificar si está en flujo de promoción
-        const state = stateManager.getState(From);
+        const state = stateManager.getUserState(From) || { step: 'inicio', data: {} };
         if (state && state.step && state.step.startsWith('promo_')) {
             const resultado = await cafeGratisHandler.procesarMensajePromo(From, Body, { mediaUrl: mediaUrl });
             if (resultado) {

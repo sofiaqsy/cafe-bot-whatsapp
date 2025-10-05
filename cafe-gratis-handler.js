@@ -55,7 +55,7 @@ class CafeGratisHandler {
     async procesarMensajePromo(from, message, messageData) {
         try {
             // Obtener estado actual
-            let state = stateManager.getState(from);
+            let state = stateManager.getUserState(from) || { step: 'inicio', data: {} };
             
             // Si el mensaje es SOLICITO MUESTRA o variantes, iniciar flujo
             const mensajeLimpio = message.trim().toUpperCase();
@@ -82,7 +82,7 @@ class CafeGratisHandler {
                         timestamp: new Date().toISOString()
                     }
                 };
-                stateManager.setState(from, state);
+                stateManager.setUserState(from, state);
             }
 
             // Si no está en flujo de promo, retornar null
@@ -272,7 +272,7 @@ class CafeGratisHandler {
             }
 
             // Guardar estado actualizado
-            stateManager.setState(from, state);
+            stateManager.setUserState(from, state);
             
             return { respuesta, state };
             
