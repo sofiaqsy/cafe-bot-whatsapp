@@ -4,7 +4,7 @@
  */
 
 const config = require('./config');
-const sheetsService = require('./sheets-service');
+// const sheetsService = require('./sheets-service'); // TODO: Implementar sheets-service
 const messageService = require('./message-service');
 const stateManager = require('./state-manager');
 
@@ -26,13 +26,17 @@ class CafeGratisHandler {
      */
     async verificarPromocionPrevia(whatsapp) {
         try {
-            // Buscar en pedidos previos si ya tiene un pedido con total 0
-            const pedidosPrevios = await sheetsService.buscarPedidosPorWhatsApp(whatsapp);
+            // Por ahora, verificar en memoria local
+            // TODO: Implementar verificación en Google Sheets
+            const numeroLimpio = whatsapp.replace('whatsapp:', '').replace('+', '');
             
-            if (pedidosPrevios && pedidosPrevios.length > 0) {
+            // Verificar si ya existe en los pedidos confirmados
+            const pedidosAnteriores = stateManager.getUserOrders(whatsapp);
+            
+            if (pedidosAnteriores && pedidosAnteriores.length > 0) {
                 // Verificar si algún pedido fue gratuito (total = 0)
-                const tienePromoPrevia = pedidosPrevios.some(pedido => {
-                    return parseFloat(pedido.total) === 0 || pedido.total === '0';
+                const tienePromoPrevia = pedidosAnteriores.some(pedido => {
+                    return parseFloat(pedido.total) === 0 || pedido.total === 0 || pedido.tipo === 'PROMOCION';
                 });
                 
                 return tienePromoPrevia;
@@ -292,55 +296,13 @@ class CafeGratisHandler {
             // Limpiar número de WhatsApp
             const numeroLimpio = whatsapp.replace('whatsapp:', '').replace('+', '');
             
-            // 1. Registrar en hoja Clientes con estado "Pendiente"
-            const datosCliente = [
-                codigoCliente,                    // ID_Cliente
-                datos.nombreCafeteria,             // Empresa/Negocio
-                datos.nombreContacto,              // Nombre Contacto
-                numeroLimpio,                      // Teléfono
-                datos.direccion,                   // Dirección
-                datos.distrito,                    // Distrito
-                datos.nombreCafeteria,             // Ciudad (usamos nombre cafetería)
-                new Date().toLocaleDateString('es-PE'), // Fecha Registro
-                new Date().toLocaleTimeString('es-PE'), // Última Compra
-                1,                                  // Total Pedidos
-                1,                                  // Total Comprado
-                45,                                 // Total Kg (1kg gratis vale S/45)
-                '',                                 // Notas
-                'Pendiente'                         // Estado_Cliente (NUEVA COLUMNA)
-            ];
+            // 1. Por ahora, guardamos solo en memoria
+            // TODO: Integrar con Google Sheets cuando se implemente sheets-service
             
-            await sheetsService.agregarCliente(datosCliente);
+            // await sheetsService.agregarCliente(datosCliente);
             
-            // 2. Crear pedido gratuito en PedidosWhatsApp
-            const datosPedido = [
-                codigoPedido,                      // ID_Pedido
-                new Date().toLocaleDateString('es-PE'), // Fecha
-                new Date().toLocaleTimeString('es-PE'), // Hora
-                datos.nombreCafeteria,             // Empresa
-                datos.nombreContacto,              // Contacto
-                numeroLimpio,                      // Teléfono
-                datos.direccion,                   // Dirección
-                'Café Orgánico Premium',           // Producto
-                1,                                  // Cantidad (kg)
-                45,                                 // Precio Unit
-                1,                                  // Subtotal (1kg)
-                0,                                  // Descuento (100%)
-                0,                                  // Total (GRATIS)
-                'Yape',                            // Método Pago
-                'Pendiente verificación',          // Estado
-                'PROMOCIÓN - Café Gratis 1kg',    // Comprobante
-                'Promoción café gratuito para nuevas cafeterías', // Observaciones
-                datos.fotoUrl || '',               // URL foto en observaciones
-                'Recepción programada: ' + datos.horarioEntrega, // Observaciones 2
-                whatsapp,                          // Usuario_WhatsApp
-                'CAFEGRATUITO'                     // Tipo
-            ];
-            
-            await sheetsService.agregarPedido(datosPedido);
-            
-            // 3. Guardar en memoria para tracking
-            stateManager.addConfirmedOrder(codigoPedido, {
+            // 2. Crear pedido gratuito en memoria
+            const pedidoGratis = {
                 id: codigoPedido,
                 clienteId: codigoCliente,
                 empresa: datos.nombreCafeteria,
@@ -348,13 +310,32 @@ class CafeGratisHandler {
                 telefono: numeroLimpio,
                 direccion: datos.direccion,
                 distrito: datos.distrito,
-                producto: 'Café Orgánico Premium - GRATIS',
+                producto: {
+                    nombre: 'Café Orgánico Premium - GRATIS',
+                    precio: 0
+                },
                 cantidad: 1,
                 total: 0,
                 estado: 'Pendiente verificación',
+                status: 'Pendiente verificación',
                 tipo: 'PROMOCION',
-                timestamp: new Date().toISOString()
-            });
+                fecha: new Date().toLocaleDateString('es-PE'),
+                hora: new Date().toLocaleTimeString('es-PE'),
+                timestamp: new Date().toISOString(),
+                fotoUrl: datos.fotoUrl || '',
+                horarioEntrega: datos.horarioEntrega,
+                ruc: datos.ruc || '',
+                notas: 'PROMOCIÓN - Café Gratis 1kg para nueva cafetería'
+            };
+            
+            // await sheetsService.agregarPedido(datosPedido);
+            
+            // 3. Guardar en memoria para tracking
+            stateManager.addConfirmedOrder(codigoPedido, pedidoGratis);
+            
+            console.log('🎆 Pedido de promoción creado:', codigoPedido);
+            console.log('   Cafetería:', datos.nombreCafeteria);
+            console.log('   Distrito:', datos.distrito);
             
             return {
                 exito: true,
