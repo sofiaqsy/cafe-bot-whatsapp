@@ -23,6 +23,7 @@ const serviceInitializer = require('./service-initializer');
 const stateManager = require('./state-manager');
 const messageService = require('./message-service');
 const orderHandler = require('./order-handler');
+const sheetsService = require('./sheets-service');
 
 // Import routes
 const homeRoutes = require('./home-routes');

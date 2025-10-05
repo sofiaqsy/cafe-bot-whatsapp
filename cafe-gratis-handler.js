@@ -4,7 +4,7 @@
  */
 
 const config = require('./config');
-// const sheetsService = require('./sheets-service'); // TODO: Implementar sheets-service
+const sheetsService = require('./sheets-service');
 const messageService = require('./message-service');
 const stateManager = require('./state-manager');
 
@@ -110,20 +110,7 @@ class CafeGratisHandler {
                     } else {
                         state.data.nombreCafeteria = message;
                         respuesta = `Registrado: ${message}\n\n` +
-                                   `PASO 2 DE 5: DIRECCIÓN\n\n` +
-                                   `Escribe la dirección completa de tu cafetería:\n` +
-                                   `(Incluye calle, número y referencias)`;
-                        state.step = 'promo_direccion';
-                    }
-                    break;
-
-                case 'promo_direccion':
-                    if (!message || message.length < 10) {
-                        respuesta = `Por favor, ingresa una dirección completa.`;
-                    } else {
-                        state.data.direccion = message;
-                        respuesta = `Dirección registrada\n\n` +
-                                   `PASO 3 DE 5: DISTRITO\n\n` +
+                                   `PASO 2 DE 5: DISTRITO\n\n` +
                                    `Selecciona tu distrito:\n\n` +
                                    `1. Miraflores\n` +
                                    `2. San Isidro\n` +
@@ -164,12 +151,25 @@ class CafeGratisHandler {
                             state = { step: 'inicio', data: {} };
                         } else {
                             respuesta = `Distrito: ${state.data.distrito}\n\n` +
-                                       `PASO 4 DE 5: VERIFICACIÓN\n\n` +
-                                       `Para verificar tu cafetería necesitamos:\n\n` +
-                                       `Envía una foto de la FACHADA de tu cafetería\n\n` +
-                                       `(Debe verse claramente el nombre del local)`;
-                            state.step = 'promo_foto';
+                                       `PASO 3 DE 5: DIRECCIÓN\n\n` +
+                                       `Escribe la dirección completa de tu cafetería:\n` +
+                                       `(Incluye calle, número y referencias)`;
+                            state.step = 'promo_direccion';
                         }
+                    }
+                    break;
+
+                case 'promo_direccion':
+                    if (!message || message.length < 10) {
+                        respuesta = `Por favor, ingresa una dirección completa.`;
+                    } else {
+                        state.data.direccion = message;
+                        respuesta = `Dirección registrada\n\n` +
+                                   `PASO 4 DE 5: VERIFICACIÓN\n\n` +
+                                   `Para verificar tu cafetería necesitamos:\n\n` +
+                                   `Envía una foto de la FACHADA de tu cafetería\n\n` +
+                                   `(Debe verse claramente el nombre del local)`;
+                        state.step = 'promo_foto';
                     }
                     break;
 
@@ -261,31 +261,62 @@ class CafeGratisHandler {
             
             // await sheetsService.agregarCliente(datosCliente);
             
-            // 2. Crear pedido en memoria (simulaña datos para formato de Clientes)
-            // Formato para la pestaña Clientes:
-            // ID_Cliente | WhatsApp | Empresa/Negocio | Nombre Contacto | Teléfono | Email | Dirección | Distrito | Ciudad | Fecha Registro | Última Compra | Total Pedidos | Total Comprado | Total Kg | Notas | Estado_Cliente
-            
+            // 2. Guardar en Google Sheets y memoria
             const datosParaClientes = {
                 id: codigoCliente,
                 whatsapp: whatsapp,
                 empresa: datos.nombreCafeteria,
                 contacto: datos.nombreContacto,
                 telefono: numeroLimpio,
-                email: '', // No solicitamos email
+                email: '',
                 direccion: datos.direccion,
                 distrito: datos.distrito,
                 ciudad: 'Lima',
                 fechaRegistro: new Date().toLocaleDateString('es-PE'),
                 ultimaCompra: new Date().toLocaleDateString('es-PE'),
                 totalPedidos: 1,
-                totalComprado: 0, // Es una muestra gratis
-                totalKg: 1, // 1kg de muestra
-                notas: `Muestra solicitada. Foto: ${datos.fotoUrl || 'Sin foto'}`,
-                estadoCliente: 'Pendiente verificación'
+                totalComprado: 0,
+                totalKg: 1,
+                notas: `Muestra solicitada. Foto: ${datos.fotoUrl || 'Sin foto'}`
             };
             
-            // TODO: Cuando se implemente sheets-service, guardar en Google Sheets
-            // await sheetsService.agregarCliente(Object.values(datosParaClientes));
+            // Intentar guardar en Google Sheets - Clientes
+            try {
+                await sheetsService.agregarCliente(datosParaClientes);
+                console.log('✅ Cliente guardado en Google Sheets');
+            } catch (error) {
+                console.error('Error guardando en Sheets:', error);
+            }
+            
+            // También crear pedido en PedidosWhatsApp
+            const datosPedido = {
+                id: codigoPedido,
+                fecha: new Date().toLocaleDateString('es-PE'),
+                hora: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                empresa: datos.nombreCafeteria,
+                contacto: datos.nombreContacto,
+                telefono: numeroLimpio,
+                direccion: datos.direccion,
+                producto: 'Café Orgánico Premium',
+                cantidad: 1,
+                precioUnit: 0,
+                subtotal: 0,
+                descuento: 0,
+                total: 0,
+                metodoPago: 'Promoción',
+                estado: 'Pendiente verificación',
+                comprobante: 'MUESTRA GRATIS',
+                observaciones: `Distrito: ${datos.distrito}. URL Foto: ${datos.fotoUrl || 'Sin foto'}`,
+                whatsapp: whatsapp,
+                tipo: 'MUESTRA'
+            };
+            
+            try {
+                await sheetsService.agregarPedido(datosPedido);
+                console.log('✅ Pedido guardado en Google Sheets');
+            } catch (error) {
+                console.error('Error guardando pedido en Sheets:', error);
+            }
             
             // Por ahora guardar en memoria para tracking
             const pedidoGratis = {
