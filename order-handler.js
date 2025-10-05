@@ -59,15 +59,15 @@ class OrderHandler {
         
         // Si tiene pedidos pendientes de verificación, mostrar mensaje y salir
         if (pedidosPendientesVerif.length > 0) {
-            const pedido = pedidosPendientesVerif[0];
-            const respuestaPendiente = `Tu pedido *${pedido.id}* está *EN PROCESO DE VERIFICACIÓN*
+            const respuestaPendiente = `Hola! Tu solicitud está en proceso.
 
-Estamos validando tu información.
-Te notificaremos cuando tu pedido esté activo.
+Estamos verificando los datos de tu cafetería para poder enviarte la muestra de nuestro café premium.
 
-*Tiempo estimado:* 24-48 horas
+En cuanto confirmemos tu solicitud, te avisaremos por aquí mismo.
 
-Gracias por tu paciencia.`;
+*Tiempo estimado:* 2-3 horas
+
+Mientras tanto, puedes preparar tu espacio para recibir nuestra muestra especial de café.`;
             return await messageService.sendMessage(from, respuestaPendiente);
         }
         
@@ -142,15 +142,15 @@ Gracias por tu paciencia.`;
                     
                     // Si tiene pedidos pendientes de verificación, mostrar mensaje especial
                     if (pedidosPendientesVerificacion.length > 0) {
-                        const pedido = pedidosPendientesVerificacion[0];
-                        respuesta = `Tu pedido *${pedido.id}* está *EN PROCESO DE VERIFICACIÓN*
+                        respuesta = `Hola! Tu solicitud está en proceso.
 
-Estamos validando tu información.
-Te notificaremos cuando tu pedido esté activo.
+Estamos verificando los datos de tu cafetería para poder enviarte la muestra de nuestro café premium.
 
-*Tiempo estimado:* 24-48 horas
+En cuanto confirmemos tu solicitud, te avisaremos por aquí mismo.
 
-Gracias por tu paciencia.`;
+*Tiempo estimado:* 2-3 horas
+
+Mientras tanto, puedes preparar tu espacio para recibir nuestra muestra especial de café.`;
                         break;
                     }
                     
