@@ -18,7 +18,7 @@ const DISTRITOS_PERMITIDOS = [
 
 class CafeGratisHandler {
     constructor() {
-        this.pasosTotales = 7;
+        this.pasosTotales = 5; // Solo 5 pasos sin RUC ni horario
     }
 
     /**
@@ -95,49 +95,49 @@ class CafeGratisHandler {
 
             switch (state.step) {
                 case 'promo_inicio':
-                    respuesta = `🎉 *BIENVENIDO AL PROGRAMA CAFÉ GRATUITO*\n` +
+                    respuesta = `BIENVENIDO AL PROGRAMA DE MUESTRAS\n` +
                                `━━━━━━━━━━━━━━━━━\n\n` +
-                               `Obtén *1kg de Café Premium GRATIS* para tu cafetería.\n\n` +
+                               `Obtén 1kg de Café Premium para tu cafetería.\n\n` +
                                `Para validar tu solicitud, necesitamos algunos datos.\n\n` +
-                               `*PASO 1 DE 7: NOMBRE DE LA CAFETERÍA*\n\n` +
+                               `PASO 1 DE 5: NOMBRE DE LA CAFETERÍA\n\n` +
                                `Por favor, escribe el nombre completo de tu cafetería:`;
                     state.step = 'promo_nombre_cafeteria';
                     break;
 
                 case 'promo_nombre_cafeteria':
                     if (!message || message.length < 3) {
-                        respuesta = `❌ Por favor, ingresa un nombre válido (mínimo 3 caracteres).`;
+                        respuesta = `Por favor, ingresa un nombre válido (mínimo 3 caracteres).`;
                     } else {
                         state.data.nombreCafeteria = message;
-                        respuesta = `✅ Registrado: *${message}*\n\n` +
-                                   `*PASO 2 DE 7: DIRECCIÓN*\n\n` +
+                        respuesta = `Registrado: ${message}\n\n` +
+                                   `PASO 2 DE 5: DIRECCIÓN\n\n` +
                                    `Escribe la dirección completa de tu cafetería:\n` +
-                                   `_(Incluye calle, número y referencias)_`;
+                                   `(Incluye calle, número y referencias)`;
                         state.step = 'promo_direccion';
                     }
                     break;
 
                 case 'promo_direccion':
                     if (!message || message.length < 10) {
-                        respuesta = `❌ Por favor, ingresa una dirección completa.`;
+                        respuesta = `Por favor, ingresa una dirección completa.`;
                     } else {
                         state.data.direccion = message;
-                        respuesta = `✅ Dirección registrada\n\n` +
-                                   `*PASO 3 DE 7: DISTRITO*\n\n` +
+                        respuesta = `Dirección registrada\n\n` +
+                                   `PASO 3 DE 5: DISTRITO\n\n` +
                                    `Selecciona tu distrito:\n\n` +
-                                   `*1.* Miraflores\n` +
-                                   `*2.* San Isidro\n` +
-                                   `*3.* Barranco\n` +
-                                   `*4.* San Borja\n` +
-                                   `*5.* Surco\n` +
-                                   `*6.* La Molina\n` +
-                                   `*7.* Jesús María\n` +
-                                   `*8.* Lince\n` +
-                                   `*9.* Magdalena\n` +
-                                   `*10.* Pueblo Libre\n` +
-                                   `*11.* San Miguel\n` +
-                                   `*12.* Otro distrito\n\n` +
-                                   `_Envía el número de tu distrito_`;
+                                   `1. Miraflores\n` +
+                                   `2. San Isidro\n` +
+                                   `3. Barranco\n` +
+                                   `4. San Borja\n` +
+                                   `5. Surco\n` +
+                                   `6. La Molina\n` +
+                                   `7. Jesús María\n` +
+                                   `8. Lince\n` +
+                                   `9. Magdalena\n` +
+                                   `10. Pueblo Libre\n` +
+                                   `11. San Miguel\n` +
+                                   `12. Otro distrito\n\n` +
+                                   `Envía el número de tu distrito`;
                         state.step = 'promo_distrito';
                     }
                     break;
@@ -151,23 +151,23 @@ class CafeGratisHandler {
                     ];
                     
                     if (isNaN(opcionDistrito) || opcionDistrito < 1 || opcionDistrito > 12) {
-                        respuesta = `❌ Por favor, envía un número del 1 al 12.`;
+                        respuesta = `Por favor, envía un número del 1 al 12.`;
                     } else {
                         state.data.distrito = distritos[opcionDistrito - 1];
                         
                         if (opcionDistrito === 12) {
                             // Distrito no cubierto
-                            respuesta = `😔 *LO SENTIMOS*\n\n` +
+                            respuesta = `LO SENTIMOS\n\n` +
                                       `Actualmente la promoción solo está disponible para los distritos listados.\n\n` +
                                       `Pronto expandiremos nuestra cobertura.\n\n` +
-                                      `_Síguenos para futuras promociones._`;
+                                      `Gracias por tu interés.`;
                             state = { step: 'inicio', data: {} };
                         } else {
-                            respuesta = `✅ Distrito: *${state.data.distrito}*\n\n` +
-                                       `*PASO 4 DE 7: VERIFICACIÓN*\n\n` +
+                            respuesta = `Distrito: ${state.data.distrito}\n\n` +
+                                       `PASO 4 DE 5: VERIFICACIÓN\n\n` +
                                        `Para verificar tu cafetería necesitamos:\n\n` +
-                                       `📸 *Envía una foto de la FACHADA de tu cafetería*\n\n` +
-                                       `_(Debe verse claramente el nombre del local)_`;
+                                       `Envía una foto de la FACHADA de tu cafetería\n\n` +
+                                       `(Debe verse claramente el nombre del local)`;
                             state.step = 'promo_foto';
                         }
                     }
@@ -175,88 +175,46 @@ class CafeGratisHandler {
 
                 case 'promo_foto':
                     if (!mediaUrl) {
-                        respuesta = `❌ No recibimos la foto.\n\n` +
+                        respuesta = `No recibimos la foto.\n\n` +
                                    `Por favor, envía una foto clara de la fachada de tu cafetería donde se vea el nombre.`;
                     } else {
                         state.data.fotoUrl = mediaUrl;
-                        respuesta = `✅ Foto recibida\n\n` +
-                                   `*PASO 5 DE 7: DATOS DE CONTACTO*\n\n` +
+                        respuesta = `Foto recibida\n\n` +
+                                   `PASO 5 DE 5: DATOS DE CONTACTO\n\n` +
                                    `¿Cuál es tu nombre completo?\n` +
-                                   `_(Propietario o encargado)_`;
+                                   `(Propietario o encargado)`;
                         state.step = 'promo_contacto';
                     }
                     break;
 
                 case 'promo_contacto':
                     if (!message || message.length < 3) {
-                        respuesta = `❌ Por favor, ingresa tu nombre completo.`;
+                        respuesta = `Por favor, ingresa tu nombre completo.`;
                     } else {
                         state.data.nombreContacto = message;
-                        respuesta = `✅ Contacto: *${message}*\n\n` +
-                                   `*PASO 6 DE 7: RUC (Opcional)*\n\n` +
-                                   `Ingresa el RUC de tu empresa:\n` +
-                                   `_(Si no tienes, escribe NO)_`;
-                        state.step = 'promo_ruc';
-                    }
-                    break;
-
-                case 'promo_ruc':
-                    if (message.toUpperCase() === 'NO' || message.toUpperCase() === 'NO TENGO' || message === '0') {
-                        state.data.ruc = '';
-                    } else if (message.length === 11 && /^\d+$/.test(message)) {
-                        state.data.ruc = message;
-                    } else if (message.length > 0 && message.length !== 11 && !/^no/i.test(message)) {
-                        respuesta = `❌ El RUC debe tener 11 dígitos.\n\n` +
-                                   `Ingresa tu RUC de 11 dígitos o escribe NO:`;
-                        break;
-                    } else {
-                        state.data.ruc = '';
-                    }
-                    
-                    respuesta = `✅ Datos fiscales registrados\n\n` +
-                               `*PASO 7 DE 7: HORARIO DE ENTREGA*\n\n` +
-                               `¿En qué horario prefieres recibir tu pedido?\n\n` +
-                               `*1.* Mañana (8am - 12pm)\n` +
-                               `*2.* Tarde (12pm - 5pm)\n` +
-                               `*3.* Cualquier horario\n\n` +
-                               `_Envía el número de tu preferencia_`;
-                    state.step = 'promo_horario';
-                    break;
-
-                case 'promo_horario':
-                    const opcionHorario = parseInt(message);
-                    const horarios = ['Mañana (8am - 12pm)', 'Tarde (12pm - 5pm)', 'Cualquier horario'];
-                    
-                    if (isNaN(opcionHorario) || opcionHorario < 1 || opcionHorario > 3) {
-                        respuesta = `❌ Por favor, envía 1, 2 o 3.`;
-                    } else {
-                        state.data.horarioEntrega = horarios[opcionHorario - 1];
+                        // Sin horario ni RUC, procesar directamente
                         
                         // Procesar y guardar
                         const resultado = await this.procesarRegistroGratis(from, state.data);
                         
                         if (resultado.exito) {
-                            respuesta = `✅ *SOLICITUD REGISTRADA EXITOSAMENTE*\n` +
+                            respuesta = `SOLICITUD REGISTRADA EXITOSAMENTE\n` +
                                        `━━━━━━━━━━━━━━━━━\n\n` +
                                        `Tu solicitud ha sido recibida.\n\n` +
-                                       `📋 *RESUMEN:*\n` +
-                                       `• Cafetería: ${state.data.nombreCafeteria}\n` +
-                                       `• Distrito: ${state.data.distrito}\n` +
-                                       `• Contacto: ${state.data.nombreContacto}\n` +
-                                       `• Horario preferido: ${state.data.horarioEntrega}\n\n` +
-                                       `📦 *Tu pedido gratuito:*\n` +
-                                       `• 1kg Café Premium Orgánico\n` +
-                                       `• Valor: S/ 45.00\n` +
-                                       `• Costo: *GRATIS*\n\n` +
-                                       `🔍 *PRÓXIMOS PASOS:*\n` +
+                                       `RESUMEN:\n` +
+                                       `Cafetería: ${state.data.nombreCafeteria}\n` +
+                                       `Distrito: ${state.data.distrito}\n` +
+                                       `Contacto: ${state.data.nombreContacto}\n\n` +
+                                       `Tu muestra:\n` +
+                                       `1kg Café Premium Orgánico\n\n` +
+                                       `PRÓXIMOS PASOS:\n` +
                                        `1. Validaremos tu información (24 horas)\n` +
                                        `2. Te confirmaremos la fecha de entrega\n` +
-                                       `3. Recibirás tu café gratuito\n\n` +
-                                       `*Código de seguimiento:* ${resultado.codigoPedido}\n\n` +
-                                       `_Te notificaremos pronto por este medio._\n\n` +
-                                       `¡Gracias por confiar en nosotros! ☕`;
+                                       `3. Recibirás tu muestra\n\n` +
+                                       `Código de seguimiento: ${resultado.codigoPedido}\n\n` +
+                                       `Te notificaremos pronto por este medio.`;
                         } else {
-                            respuesta = `❌ *ERROR AL PROCESAR*\n\n` +
+                            respuesta = `ERROR AL PROCESAR\n\n` +
                                        `Hubo un problema al registrar tu solicitud.\n\n` +
                                        `Por favor, intenta nuevamente más tarde o contacta soporte.`;
                         }
@@ -303,31 +261,46 @@ class CafeGratisHandler {
             
             // await sheetsService.agregarCliente(datosCliente);
             
-            // 2. Crear pedido gratuito en memoria
-            const pedidoGratis = {
-                id: codigoPedido,
-                clienteId: codigoCliente,
+            // 2. Crear pedido en memoria (simulaña datos para formato de Clientes)
+            // Formato para la pestaña Clientes:
+            // ID_Cliente | WhatsApp | Empresa/Negocio | Nombre Contacto | Teléfono | Email | Dirección | Distrito | Ciudad | Fecha Registro | Última Compra | Total Pedidos | Total Comprado | Total Kg | Notas | Estado_Cliente
+            
+            const datosParaClientes = {
+                id: codigoCliente,
+                whatsapp: whatsapp,
                 empresa: datos.nombreCafeteria,
                 contacto: datos.nombreContacto,
                 telefono: numeroLimpio,
+                email: '', // No solicitamos email
                 direccion: datos.direccion,
                 distrito: datos.distrito,
+                ciudad: 'Lima',
+                fechaRegistro: new Date().toLocaleDateString('es-PE'),
+                ultimaCompra: new Date().toLocaleDateString('es-PE'),
+                totalPedidos: 1,
+                totalComprado: 0, // Es una muestra gratis
+                totalKg: 1, // 1kg de muestra
+                notas: `Muestra solicitada. Foto: ${datos.fotoUrl || 'Sin foto'}`,
+                estadoCliente: 'Pendiente verificación'
+            };
+            
+            // TODO: Cuando se implemente sheets-service, guardar en Google Sheets
+            // await sheetsService.agregarCliente(Object.values(datosParaClientes));
+            
+            // Por ahora guardar en memoria para tracking
+            const pedidoGratis = {
+                id: codigoPedido,
+                ...datosParaClientes,
                 producto: {
-                    nombre: 'Café Orgánico Premium - GRATIS',
+                    nombre: 'Café Orgánico Premium - MUESTRA',
                     precio: 0
                 },
                 cantidad: 1,
                 total: 0,
                 estado: 'Pendiente verificación',
                 status: 'Pendiente verificación',
-                tipo: 'PROMOCION',
-                fecha: new Date().toLocaleDateString('es-PE'),
-                hora: new Date().toLocaleTimeString('es-PE'),
-                timestamp: new Date().toISOString(),
-                fotoUrl: datos.fotoUrl || '',
-                horarioEntrega: datos.horarioEntrega,
-                ruc: datos.ruc || '',
-                notas: 'PROMOCIÓN - Café Gratis 1kg para nueva cafetería'
+                tipo: 'MUESTRA',
+                timestamp: new Date().toISOString()
             };
             
             // await sheetsService.agregarPedido(datosPedido);
