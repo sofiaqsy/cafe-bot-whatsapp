@@ -8,8 +8,6 @@ const sheetsService = require('./sheets-service');
 const messageService = require('./message-service');
 const stateManager = require('./state-manager');
 const googleDriveService = require('./google-drive-service');
-const driveService = require('./drive-service');
-const notificationService = require('./notification-service');
 
 // Distritos permitidos para la promoción
 const DISTRITOS_PERMITIDOS = [
@@ -291,7 +289,6 @@ class CafeGratisHandler {
             if (datos.fotoUrl) {
                 try {
                     console.log('📸 Subiendo foto de cafetería a Google Drive...');
-                    const googleDriveService = require('./google-drive-service');
                     
                     // Inicializar si no está inicializado
                     if (!googleDriveService.initialized && !googleDriveService.useLocalStorage) {
