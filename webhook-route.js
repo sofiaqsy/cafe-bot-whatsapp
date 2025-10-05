@@ -9,6 +9,14 @@ const orderHandler = require('./order-handler');
 const cafeGratisHandler = require('./cafe-gratis-handler');
 const messageService = require('./message-service');
 const stateManager = require('./state-manager');
+const sheetsService = require('./sheets-service');
+
+// Inicializar Google Sheets
+sheetsService.initialize().then(() => {
+    console.log('Sheets service inicializado en webhook-route');
+}).catch(error => {
+    console.error('Error inicializando sheets en webhook-route:', error);
+});
 
 /**
  * POST /webhook

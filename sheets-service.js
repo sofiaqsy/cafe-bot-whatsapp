@@ -19,23 +19,38 @@ class SheetsService {
      */
     async initialize() {
         try {
-            // Si no hay credenciales configuradas, salir
-            if (!config.google.credentials || !config.google.spreadsheetId) {
+            // Obtener credenciales y spreadsheet ID de las variables de entorno
+            const credentialsJson = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+            const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
+            
+            if (!credentialsJson || !spreadsheetId) {
                 console.log('⚠️ Google Sheets no configurado - trabajando en modo offline');
+                console.log('   Necesitas GOOGLE_SERVICE_ACCOUNT_KEY y GOOGLE_SPREADSHEET_ID');
+                return false;
+            }
+
+            // Parsear las credenciales JSON
+            let credentials;
+            try {
+                credentials = JSON.parse(credentialsJson);
+            } catch (error) {
+                console.error('❌ Error parseando GOOGLE_SERVICE_ACCOUNT_KEY:', error.message);
                 return false;
             }
 
             // Configurar autenticación
             this.auth = new google.auth.GoogleAuth({
-                credentials: config.google.credentials,
+                credentials: credentials,
                 scopes: ['https://www.googleapis.com/auth/spreadsheets']
             });
 
             // Crear cliente de Sheets
             this.sheets = google.sheets({ version: 'v4', auth: this.auth });
+            this.spreadsheetId = spreadsheetId;
             
             this.initialized = true;
             console.log('✅ Google Sheets Service inicializado');
+            console.log('   Spreadsheet ID:', spreadsheetId);
             return true;
         } catch (error) {
             console.error('❌ Error inicializando Google Sheets:', error.message);
