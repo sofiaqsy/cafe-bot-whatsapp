@@ -88,4 +88,28 @@ router.get('/', (req, res) => {
     });
 });
 
+/**
+ * POST /status
+ * Handle status callbacks from Twilio
+ */
+router.post('/status', (req, res) => {
+    const { MessageStatus, MessageSid, ErrorCode, ErrorMessage, To } = req.body;
+    
+    // Log el status del mensaje
+    if (ErrorCode) {
+        console.error(`❌ Error en mensaje ${MessageSid}:`);
+        console.error(`   Código: ${ErrorCode}`);
+        console.error(`   Mensaje: ${ErrorMessage}`);
+        console.error(`   Destinatario: ${To}`);
+    } else {
+        console.log(`📊 Status update:`);
+        console.log(`   Estado: ${MessageStatus}`);
+        console.log(`   ID: ${MessageSid}`);
+        console.log(`   Para: ${To}`);
+    }
+    
+    // Siempre responder 200 a Twilio
+    res.sendStatus(200);
+});
+
 module.exports = router;
