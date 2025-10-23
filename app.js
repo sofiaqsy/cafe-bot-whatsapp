@@ -42,6 +42,27 @@ app.use('/webhook', webhookRoute);
 app.use('/admin', adminRoute);
 app.use('/', webhookEstado); // Webhook de estado en la raíz
 app.use('/', webhookCliente); // Webhook de clientes
+
+// Ruta para status callbacks de Twilio
+app.post('/status', (req, res) => {
+    const { MessageStatus, MessageSid, ErrorCode, ErrorMessage, To } = req.body;
+    
+    // Log el status del mensaje
+    if (ErrorCode) {
+        console.error(`❌ Error en mensaje ${MessageSid}:`);
+        console.error(`   Código: ${ErrorCode}`);
+        console.error(`   Mensaje: ${ErrorMessage}`);
+        console.error(`   Destinatario: ${To}`);
+    } else {
+        console.log(`📊 Status update:`);
+        console.log(`   Estado: ${MessageStatus}`);
+        console.log(`   ID: ${MessageSid}`);
+        console.log(`   Para: ${To}`);
+    }
+    
+    // Siempre responder 200 a Twilio
+    res.sendStatus(200);
+});
 // Error handling middleware
 app.use((error, req, res, next) => {
     console.error('❌ Error:', error);
