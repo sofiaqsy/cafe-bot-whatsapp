@@ -60,22 +60,41 @@ class MessageService {
         }
         
         try {
-            const messageOptions = {
-                from: this.phoneNumber,
-                to: to,
-                body: message
-            };
-            
-            if (mediaUrl) {
-                messageOptions.mediaUrl = Array.isArray(mediaUrl) ? mediaUrl : [mediaUrl];
+            // Intentar primero con la plantilla aprobada
+            try {
+                const templateMessage = await this.client.messages.create({
+                    from: this.phoneNumber,
+                    to: to,
+                    contentSid: 'HX867d323c3e098ec9fda6d0c422b150fb', // Tu plantilla aprobada
+                    contentVariables: JSON.stringify({
+                        '1': message  // El mensaje va en la variable {{1}}
+                    })
+                });
+                console.log(`✅ Mensaje enviado a ${to} usando plantilla`);
+                return templateMessage;
+            } catch (templateError) {
+                // Si falla la plantilla, intentar mensaje directo (para sesiones activas)
+                console.log('⚠️ Plantilla falló, intentando mensaje directo...');
+                
+                const messageOptions = {
+                    from: this.phoneNumber,
+                    to: to,
+                    body: message
+                };
+                
+                if (mediaUrl) {
+                    messageOptions.mediaUrl = Array.isArray(mediaUrl) ? mediaUrl : [mediaUrl];
+                }
+                
+                const result = await this.client.messages.create(messageOptions);
+                console.log(`✅ Mensaje enviado a ${to} (sesión activa)`);
+                return result;
             }
-            
-            const result = await this.client.messages.create(messageOptions);
-            console.log(`✅ Mensaje enviado a ${to}`);
-            return result;
         } catch (error) {
             console.error('❌ Error enviando mensaje:', error.message);
-            throw error;
+            console.error('   Código:', error.code);
+            // No lanzar el error para no bloquear el flujo
+            return null;
         }
     }
     

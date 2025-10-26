@@ -57,7 +57,9 @@ class OrderHandler {
             return estado === 'Pendiente verificación' || estado === 'Pendiente verificacion';
         });
         
+        // TEMPORALMENTE DESHABILITADO - WhatsApp requiere plantillas para mensajes iniciados por bot
         // Si tiene pedidos pendientes de verificación, mostrar mensaje y salir
+        /*
         if (pedidosPendientesVerif.length > 0) {
             const respuestaPendiente = `Hola! Tu solicitud está en proceso.
 
@@ -70,6 +72,7 @@ En cuanto confirmemos tu solicitud, te avisaremos por aquí mismo.
 Mientras tanto, puedes preparar tu espacio para recibir nuestra muestra especial de café.`;
             return await messageService.sendMessage(from, respuestaPendiente);
         }
+        */
         
         // Comando global: MENÚ
         if (mensaje.toLowerCase() === 'menu' || mensaje.toLowerCase() === 'menú') {
