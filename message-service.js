@@ -60,21 +60,25 @@ class MessageService {
         }
         
         try {
-            // Intentar primero con la plantilla aprobada
+            // TEMPORALMENTE DESHABILITADO - La plantilla está causando errores
+            // Ir directo al mensaje sin plantilla
+            /*
             try {
                 const templateMessage = await this.client.messages.create({
                     from: this.phoneNumber,
                     to: to,
-                    contentSid: 'HX867d323c3e098ec9fda6d0c422b150fb', // Tu plantilla aprobada
+                    contentSid: 'HX867d323c3e098ec9fda6d0c422b150fb',
+                    messagingServiceSid: undefined,
                     contentVariables: JSON.stringify({
-                        '1': message  // El mensaje va en la variable {{1}}
+                        '1': message.substring(0, 1000)
                     })
                 });
                 console.log(`✅ Mensaje enviado a ${to} usando plantilla`);
                 return templateMessage;
             } catch (templateError) {
-                // Si falla la plantilla, intentar mensaje directo (para sesiones activas)
-                console.log('⚠️ Plantilla falló, intentando mensaje directo...');
+            */
+                // Enviar mensaje directo sin plantilla
+                console.log('📨 Enviando mensaje directo...');
                 console.log('   Número TO original:', to);
                 console.log('   Número FROM:', this.phoneNumber);
                 
@@ -107,7 +111,7 @@ class MessageService {
                 const result = await this.client.messages.create(messageOptions);
                 console.log(`✅ Mensaje enviado a ${formattedTo} (sesión activa)`);
                 return result;
-            }
+            //}
         } catch (error) {
             console.error('❌ Error enviando mensaje:', error.message);
             console.error('   Código:', error.code);
