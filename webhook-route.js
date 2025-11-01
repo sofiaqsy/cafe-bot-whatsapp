@@ -67,7 +67,7 @@ router.post('/', async (req, res) => {
         // Si no es promoción, procesar con el handler normal
         await orderHandler.handleMessage(From, Body, mediaUrl);
         
-        // Send acknowledgment to Twilio
+        // IMPORTANTE: Siempre enviar respuesta 200 a Twilio
         res.status(200).send('OK');
         
     } catch (error) {
