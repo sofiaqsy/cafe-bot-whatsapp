@@ -75,10 +75,28 @@ class MessageService {
             } catch (templateError) {
                 // Si falla la plantilla, intentar mensaje directo (para sesiones activas)
                 console.log('⚠️ Plantilla falló, intentando mensaje directo...');
+                console.log('   Número TO original:', to);
+                console.log('   Número FROM:', this.phoneNumber);
+                
+                // Asegurar formato correcto
+                let formattedTo = to;
+                if (!to.startsWith('whatsapp:')) {
+                    formattedTo = 'whatsapp:' + to;
+                }
+                
+                // Asegurar que tenga el + después de whatsapp:
+                if (formattedTo.startsWith('whatsapp:') && !formattedTo.includes('+')) {
+                    formattedTo = formattedTo.replace('whatsapp:', 'whatsapp:+');
+                }
+                
+                // Eliminar espacios si existen
+                formattedTo = formattedTo.replace(/\s/g, '');
+                
+                console.log('   Número TO formateado:', formattedTo);
                 
                 const messageOptions = {
                     from: this.phoneNumber,
-                    to: to,
+                    to: formattedTo,
                     body: message
                 };
                 
@@ -87,7 +105,7 @@ class MessageService {
                 }
                 
                 const result = await this.client.messages.create(messageOptions);
-                console.log(`✅ Mensaje enviado a ${to} (sesión activa)`);
+                console.log(`✅ Mensaje enviado a ${formattedTo} (sesión activa)`);
                 return result;
             }
         } catch (error) {
